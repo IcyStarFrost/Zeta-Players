@@ -21,7 +21,6 @@ function ENT:EmitStepSound(level, volume)
     end
 end
 
---test
 function ENT:ZetaPlayVoiceSound(sndName, callRemove, stopPlaying)
 	if stopPlaying and (self.IsSpeaking == true or self.AllowVoice == false) then return end
 	self.IsSpeaking = true
