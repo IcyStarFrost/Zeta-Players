@@ -1,0 +1,14 @@
+VertexLitGeneric
+{
+$baseTexture "models\v_models\Weapons\rifle/m16a2"
+$bumpmap "effects/flat_normal"
+
+$halflambert 1
+$phong 1
+$phongboost 1
+$phongexponent 10
+$phongfresnelranges "[5 5 15]"
+$BASEMAPLUMINANCEPHONGMASK 1
+$color2 "[ 2 2 2 ]"
+$ambientocclusion 1
+}

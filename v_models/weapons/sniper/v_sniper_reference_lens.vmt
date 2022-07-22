@@ -1,0 +1,7 @@
+VertexLitGeneric
+{
+$baseTexture "models\v_models\Weapons\Sniper\V_Sniper_Reference"
+$envmap env_cubemap
+$envmapmask "models\v_models\Weapons\Sniper\V_Sniper_Reference_ref"
+
+}
