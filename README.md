@@ -1,1 +1,1 @@
-# Zeta-Players
+# Zeta Players
