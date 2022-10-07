@@ -203,6 +203,7 @@ elseif CLIENT then
                 if !IsValid(musicbox) then channel:Stop() hook.Remove("Think","zetamusicboxthink"..index) return end
                 if !IsValid(channel) then hook.Remove("Think","zetamusicboxthink"..index) return end
                 channel:SetPos(musicbox:GetPos())
+                channel:Play()
                 if no3d then
                     local dist = LocalPlayer():GetPos():DistToSqr(musicbox:GetPos())
                     local volume = math.Clamp( GetConVar("zetaplayer_musicvolume"):GetFloat()/(dist/(7000*30)),0,GetConVar("zetaplayer_musicvolume"):GetFloat())

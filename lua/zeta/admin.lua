@@ -1,13 +1,6 @@
 AddCSLuaFile()
 
-ENT.IsAdmin = false
 ENT.CurrentRuleData = {}
-ENT.HeldOffender = NULL
-ENT.InSit = false
-ENT.SitAdmin = NULL
-ENT.IsJailed = false
-ENT.AllowResponse = false
-
 local IsValid = IsValid
 
 local props = {
@@ -61,7 +54,7 @@ function ENT:Interrogate(times,offender)
 
     while true do 
         if !IsValid(offender) then break end
-        if offender.IsZetaPlayer then offender:CancelMove() offender:SetState("jailed/held") end
+        if offender.IsZetaPlayer then if !offender.SitAdmin then offender.SitAdmin = self end offender:CancelMove() offender:SetEnemy(NULL) if offender:GetState() != "jailed/held" then offender:SetState("jailed/held") end end
         if stop then break end
         if self.AllowResponse then timer.UnPause("zetaAdmin_interrogate"..self:EntIndex()) end
         coroutine.yield()

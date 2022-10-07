@@ -23,7 +23,7 @@ if ( SERVER ) then
             if table.HasValue(decoded,_string) then ply:PrintMessage(HUD_PRINTCONSOLE,_string.." is already registered!") return end
             table.insert(decoded,_string)
             local encoded = util.TableToJSON(decoded)
-            file.Write("zetaplayerdata/materials.json",encoded)
+            ZetaFileWrite("zetaplayerdata/materials.json",encoded)
             ply:PrintMessage(HUD_PRINTCONSOLE,"Added ".._string.." To the Zeta's Valid Materials")
             hook.Run("OnUpdateRegisteredMats",_string)
         else
@@ -45,7 +45,7 @@ if ( SERVER ) then
             if !table.HasValue(decoded,_string) then ply:PrintMessage(HUD_PRINTCONSOLE,_string.." is not Registered!") return end
             table.RemoveByValue(decoded,_string)
             local encoded = util.TableToJSON(decoded)
-            file.Write("zetaplayerdata/materials.json",encoded)
+            ZetaFileWrite("zetaplayerdata/materials.json",encoded)
             ply:PrintMessage(HUD_PRINTCONSOLE,"Removed ".._string.." from Zeta's Valid Materials")
             hook.Run("OnUpdateRegisteredMats",_string)
         else
@@ -103,7 +103,7 @@ if ( SERVER ) then
 
           local json = util.TableToJSON(defaultmaterials)
 
-          file.Write("zetaplayerdata/materials.json",json)
+          ZetaFileWrite("zetaplayerdata/materials.json",json)
           ply:PrintMessage(HUD_PRINTCONSOLE,'Materials Reset To Default!')
     end
 
@@ -159,7 +159,7 @@ if ( SERVER ) then
 
           local json = util.TableToJSON(defaultmaterials)
 
-          file.Write("zetaplayerdata/materials.json",json)
+          ZetaFileWrite("zetaplayerdata/materials.json",json)
 
 
     end
@@ -179,7 +179,7 @@ if ( SERVER ) then
             if table.HasValue(decoded,_string) then ply:PrintMessage(HUD_PRINTCONSOLE,_string.." is already registered!") return end
             table.insert(decoded,_string)
             local encoded = util.TableToJSON(decoded)
-            file.Write("zetaplayerdata/props.json",encoded)
+            ZetaFileWrite("zetaplayerdata/props.json",encoded)
             ply:PrintMessage(HUD_PRINTCONSOLE,"Added ".._string.." To the Zeta's Valid Props")
             hook.Run("OnUpdateRegisteredProps",_string)
         else
@@ -201,7 +201,7 @@ if ( SERVER ) then
             if !table.HasValue(decoded,_string) then ply:PrintMessage(HUD_PRINTCONSOLE,_string.." is not Registered!") return end
             table.RemoveByValue(decoded,_string)
             local encoded = util.TableToJSON(decoded)
-            file.Write("zetaplayerdata/props.json",encoded)
+            ZetaFileWrite("zetaplayerdata/props.json",encoded)
             ply:PrintMessage(HUD_PRINTCONSOLE,"Removed ".._string.." from Zeta's Valid Props")
             hook.Run("OnUpdateRegisteredProps",_string)
         else
@@ -619,7 +619,7 @@ if ( SERVER ) then
         
           local json = util.TableToJSON(defaultprops)
 
-          file.Write("zetaplayerdata/props.json",json)
+          ZetaFileWrite("zetaplayerdata/props.json",json)
 
           ply:PrintMessage(HUD_PRINTCONSOLE,'Props Reset To Default!')
     end
@@ -1033,7 +1033,7 @@ if ( SERVER ) then
         
           local json = util.TableToJSON(defaultprops)
 
-          file.Write("zetaplayerdata/props.json",json)
+          ZetaFileWrite("zetaplayerdata/props.json",json)
 
 
     end
@@ -1051,7 +1051,7 @@ if ( SERVER ) then
             if table.HasValue(decoded,_string) then ply:PrintMessage(HUD_PRINTCONSOLE,_string.." is already registered!") return end
             table.insert(decoded,_string)
             local encoded = util.TableToJSON(decoded,true)
-            file.Write("zetaplayerdata/names.json",encoded)
+            ZetaFileWrite("zetaplayerdata/names.json",encoded)
             ply:PrintMessage(HUD_PRINTCONSOLE,"Added ".._string.." To Zeta's names")
         
     end
@@ -1066,7 +1066,7 @@ if ( SERVER ) then
             if !table.HasValue(decoded,_string) then ply:PrintMessage(HUD_PRINTCONSOLE,_string.." is not Registered!") return end
             table.RemoveByValue(decoded,_string)
             local encoded = util.TableToJSON(decoded,true)
-            file.Write("zetaplayerdata/names.json",encoded)
+            ZetaFileWrite("zetaplayerdata/names.json",encoded)
             ply:PrintMessage(HUD_PRINTCONSOLE,"Removed ".._string.." from Zeta's names")
 
     end
@@ -1361,10 +1361,10 @@ local defaultnames = {
 
         }
         local json = file.Read("zetaplayerdata/names.json","DATA")
-        file.Write("zetaplayerdata/names_BACKUP.json",json)
+        ZetaFileWrite("zetaplayerdata/names_BACKUP.json",json)
         local encode = util.TableToJSON(defaultnames,true)
 
-        file.Write("zetaplayerdata/names.json",encode)
+        ZetaFileWrite("zetaplayerdata/names.json",encode)
 
         ply:PrintMessage(HUD_PRINTCONSOLE,'Names Reset To Default!')
     end
@@ -1662,7 +1662,7 @@ local defaultnames = {
 
 local encode = util.TableToJSON(defaultnames,true)
 
-file.Write("zetaplayerdata/names.json",encode)
+ZetaFileWrite("zetaplayerdata/names.json",encode)
 end
 
     ------
@@ -1691,7 +1691,7 @@ function RegisterNPC(ply,cmd,args)
         if table.HasValue(decoded,_string) then ply:PrintMessage(HUD_PRINTCONSOLE,_string.." is already registered!") return end
         table.insert(decoded,_string)
         local encoded = util.TableToJSON(decoded)
-        file.Write("zetaplayerdata/npcs.json",encoded)
+        ZetaFileWrite("zetaplayerdata/npcs.json",encoded)
         ply:PrintMessage(HUD_PRINTCONSOLE,"Added ".._string.." To the Zeta's Valid NPCs!")
         hook.Run("OnUpdateRegisteredNPCs",_string)
 
@@ -1707,7 +1707,7 @@ function RemoveNPC(ply,cmd,args)
         if !table.HasValue(decoded,_string) then ply:PrintMessage(HUD_PRINTCONSOLE,_string.." is not Registered!") return end
         table.RemoveByValue(decoded,_string)
         local encoded = util.TableToJSON(decoded)
-        file.Write("zetaplayerdata/npcs.json",encoded)
+        ZetaFileWrite("zetaplayerdata/npcs.json",encoded)
         ply:PrintMessage(HUD_PRINTCONSOLE,"Removed ".._string.." from Zeta's Valid NPCs")
         hook.Run("OnUpdateRegisteredNPCs",_string)
 
@@ -1759,7 +1759,7 @@ if !file.Exists("zetaplayerdata/npcs.json","DATA") then -- Default Garry's Mod n
 
       local json = util.TableToJSON(defaultNPCS)
 
-      file.Write("zetaplayerdata/npcs.json",json)
+      ZetaFileWrite("zetaplayerdata/npcs.json",json)
 
 
 end
@@ -1809,7 +1809,7 @@ function ResetNPCstoDefault(ply)
 
       local json = util.TableToJSON(defaultNPCS)
 
-      file.Write("zetaplayerdata/npcs.json",json)
+      ZetaFileWrite("zetaplayerdata/npcs.json",json)
       ply:PrintMessage(HUD_PRINTCONSOLE,'NPCs Reset To Default!')
 end
 
@@ -1837,7 +1837,7 @@ function RegisterEntity(ply,cmd,args)
         if table.HasValue(decoded,_string) then ply:PrintMessage(HUD_PRINTCONSOLE,_string.." is already registered!") return end
         table.insert(decoded,_string)
         local encoded = util.TableToJSON(decoded)
-        file.Write("zetaplayerdata/ents.json",encoded)
+        ZetaFileWrite("zetaplayerdata/ents.json",encoded)
         ply:PrintMessage(HUD_PRINTCONSOLE,"Added ".._string.." To the Zeta's Valid Entities!")
         hook.Run("OnUpdateRegisteredENTs",_string)
 
@@ -1853,7 +1853,7 @@ function RemoveEntity(ply,cmd,args)
         if !table.HasValue(decoded,_string) then ply:PrintMessage(HUD_PRINTCONSOLE,_string.." is not Registered!") return end
         table.RemoveByValue(decoded,_string)
         local encoded = util.TableToJSON(decoded)
-        file.Write("zetaplayerdata/ents.json",encoded)
+        ZetaFileWrite("zetaplayerdata/ents.json",encoded)
         ply:PrintMessage(HUD_PRINTCONSOLE,"Removed ".._string.." from Zeta's Valid Entities")
         hook.Run("OnUpdateRegisteredENTs",_string)
 
@@ -1873,7 +1873,7 @@ if !file.Exists("zetaplayerdata/ents.json","DATA") then -- Default Garry's Mod e
 
       local json = util.TableToJSON(defaultEntities)
 
-      file.Write("zetaplayerdata/ents.json",json)
+      ZetaFileWrite("zetaplayerdata/ents.json",json)
 
 
 end
@@ -1893,7 +1893,7 @@ function ResetEntitiestoDefault(ply)
 
       local json = util.TableToJSON(defaultEntities)
 
-      file.Write("zetaplayerdata/ents.json",json)
+      ZetaFileWrite("zetaplayerdata/ents.json",json)
       ply:PrintMessage(HUD_PRINTCONSOLE,'Entities Reset To Default!')
 end
 
@@ -1926,7 +1926,7 @@ function RegisterTeam(ply,cmd,args,argstrin)
         if table.HasValue(decoded,_string) then ply:PrintMessage(HUD_PRINTCONSOLE,_string.." is already a Team!") return end
         table.insert(decoded,_string)
         local encoded = util.TableToJSON(decoded)
-        file.Write("zetaplayerdata/teams.json",encoded)
+        ZetaFileWrite("zetaplayerdata/teams.json",encoded)
         ply:PrintMessage(HUD_PRINTCONSOLE,"Added ".._string.." To the Zeta's Team List!")
 
 
@@ -1941,7 +1941,7 @@ function RemoveTeam(ply,cmd,args,argstrin)
         if !table.HasValue(decoded,_string) then ply:PrintMessage(HUD_PRINTCONSOLE,_string.." is not a team!") return end
         table.RemoveByValue(decoded,_string)
         local encoded = util.TableToJSON(decoded)
-        file.Write("zetaplayerdata/teams.json",encoded)
+        ZetaFileWrite("zetaplayerdata/teams.json",encoded)
         ply:PrintMessage(HUD_PRINTCONSOLE,"Removed ".._string.." from Zeta's Team List")
 
 
@@ -1958,7 +1958,7 @@ if !file.Exists("zetaplayerdata/teams.json","DATA") then -- Default Team list
 
       local json = util.TableToJSON(defaultTeams)
 
-      file.Write("zetaplayerdata/teams.json",json)
+      ZetaFileWrite("zetaplayerdata/teams.json",json)
 end
 
 if file.Exists("zetaplayerdata/teams.json","DATA") then
@@ -1973,7 +1973,7 @@ if file.Exists("zetaplayerdata/teams.json","DATA") then
 
     local json = util.TableToJSON(tbl,true)
 
-    file.Write("zetaplayerdata/teams.json",json)
+    ZetaFileWrite("zetaplayerdata/teams.json",json)
 end
 
 function ResetTeamstoDefault(ply)
@@ -1986,7 +1986,7 @@ function ResetTeamstoDefault(ply)
 
       local json = util.TableToJSON(defaultTeams)
 
-      file.Write("zetaplayerdata/teams.json",json)
+      ZetaFileWrite("zetaplayerdata/teams.json",json)
       ply:PrintMessage(HUD_PRINTCONSOLE,'Teams Reset To Default!')
 end
 
@@ -2000,10 +2000,10 @@ end
     end
 
     if !file.Exists("zetaplayerdata/profiles.json","DATA") then
-        file.Write("zetaplayerdata/profiles.json",util.TableToJSON({},true))
+        ZetaFileWrite("zetaplayerdata/profiles.json",'[]')
     end
 
-    if !file.Exists("zetaplayerdata/rgsn.json","DATA") then
+--[[     if !file.Exists("zetaplayerdata/rgsn.json","DATA") then
         local rndnews = {
             "completed Half Life 2",
             "completed Half Life 2 Episode 1",
@@ -2161,8 +2161,8 @@ end
             "downloaded gmod realism addons",
             "wasted their storage playing gmod"
         }
-        file.Write("zetaplayerdata/rgsn.json",util.TableToJSON(rndnews,true))
-    end
+        ZetaFileWrite("zetaplayerdata/rgsn.json",util.TableToJSON(rndnews,true))
+    end ]]
 
 
     function ResetTextDataToDefault()
@@ -3466,7 +3466,22 @@ end
                     }
         
                 
-    
+                local acknowlines = {
+                    "Okay",
+                    "ok",
+                    "kk",
+                    "Alright",
+                    "K fam",
+                    "Sure",
+                    "sure thing",
+                    "mkay",
+                    "Ayeeee",
+                    "Kay",
+                    "Aight"
+            
+                }
+            
+                
             
 
 
@@ -3475,6 +3490,7 @@ end
 
         local textentries = {}
 
+        textentries["acknowledge"] = acknowlines
         textentries["mediawatch"] = mediawatch
         textentries["idle"] = idletext
         textentries["insult"] = insulttext
@@ -3492,7 +3508,7 @@ end
         textentries["easter"] = easter
         textentries["addoncreatorbirthday"] = addoncreatorbirthday
         textentries["addoncreationday"] = addoncreationday
-        file.Write("zetaplayerdata/textchatdata.json",util.TableToJSON(textentries,true))
+        ZetaFileWrite("zetaplayerdata/textchatdata.json",util.TableToJSON(textentries,true))
 
     end
 
@@ -3590,7 +3606,7 @@ end
             }
 
         texttable["mediawatch"] = lines
-        file.Write("zetaplayerdata/textchatdata.json",util.TableToJSON(texttable,true))
+        ZetaFileWrite("zetaplayerdata/textchatdata.json",util.TableToJSON(texttable,true))
     end
 
     if !texttable["disconnect"] then
@@ -3623,7 +3639,27 @@ end
             }
 
         texttable["disconnect"] = lines
-        file.Write("zetaplayerdata/textchatdata.json",util.TableToJSON(texttable,true))
+        ZetaFileWrite("zetaplayerdata/textchatdata.json",util.TableToJSON(texttable,true))
+    end
+
+    if !texttable["acknowledge"] then
+        local lines = {
+            "Okay",
+            "ok",
+            "kk",
+            "Alright",
+            "K fam",
+            "Sure",
+            "sure thing",
+            "mkay",
+            "Ayeeee",
+            "Kay",
+            "Aight"
+
+        }
+
+        texttable["acknowledge"] = lines
+        ZetaFileWrite("zetaplayerdata/textchatdata.json",util.TableToJSON(texttable,true))
     end
 
     if !texttable["connect"] then
@@ -3770,7 +3806,7 @@ end
             }
 
         texttable["connect"] = lines
-        file.Write("zetaplayerdata/textchatdata.json",util.TableToJSON(texttable,true))
+        ZetaFileWrite("zetaplayerdata/textchatdata.json",util.TableToJSON(texttable,true))
     end
 
 
@@ -3867,7 +3903,7 @@ end
 		
 		
     }
-    file.Write("zetaplayerdata/mediaplayerdata.json",util.TableToJSON(urls,true))
+    ZetaFileWrite("zetaplayerdata/mediaplayerdata.json",util.TableToJSON(urls,true))
     end
 
 
@@ -3898,7 +3934,7 @@ end
         }
 
 
-        file.Write("zetaplayerdata/votingdata.json",util.TableToJSON(tbl,true))
+        ZetaFileWrite("zetaplayerdata/votingdata.json",util.TableToJSON(tbl,true))
     end
 
     if !file.Exists("zetaplayerdata/mediaplayerdata.json","DATA") then
@@ -3906,7 +3942,7 @@ end
     end
 
     if !file.Exists("zetaplayerdata/blockedplayermodels.json","DATA") then
-        file.Write("zetaplayerdata/blockedplayermodels.json","[]")
+        ZetaFileWrite("zetaplayerdata/blockedplayermodels.json","[]")
     end
 
     if !file.Exists("zetaplayerdata/votingdata.json","DATA") then

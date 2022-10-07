@@ -12,11 +12,21 @@ trace.TraceHull = util.TraceHull
 trace.QuickTrace = util.QuickTrace
 trace.TraceEntity = util.TraceEntity
 
-local IsValid = IsValid
+local oldisvalid = IsValid
+
+local function IsValid( ent )
+    if oldisvalid( ent ) and ent.IsZetaPlayer then
+        
+        return !ent.IsDead 
+    else
+        return oldisvalid( ent )
+    end
+end
+
+
 local math = math
+local util = util
 
-
-ENT.UnstuckSelf = false
 
 local collcheckdata = {} -- Local table so we aren't creating multiple tables. Optimization
 
@@ -107,6 +117,7 @@ function ENT:ZETA_MoveTo(to, options)
     if self:IsInNoclip() then return "failed" end
     local isEntity = !isvector(to)
     if isEntity and !IsValid(to) then return end
+
     local options = options or {}
 	local path = Path("Follow")
 	path:SetMinLookAheadDistance(options.lookahead or 500)
@@ -155,7 +166,7 @@ function ENT:ZETA_MoveTo(to, options)
             if shouldAbort == "abort" then return "aborted" end
         end
 
-        if options.draw or GetConVar('zetaplayer_debug'):GetBool() then
+        if options.draw or GetConVar('zetaplayer_debug_displaypathfindingpaths'):GetBool() then
 			path:Draw()
         end
         if !self.TypingInChat then
@@ -193,7 +204,7 @@ function ENT:MoveToPos( pos, run, update )
 	while ( path:IsValid() ) do
         if self.AbortMove == true then self.AbortMove = false self.IsMoving = false return 'aborted' end 
 
-        if GetConVar('zetaplayer_debug'):GetInt() == 1 then
+        if GetConVar('zetaplayer_debug_displaypathfindingpaths'):GetInt() == 1 then
 			path:Draw()
         end
         
@@ -264,7 +275,7 @@ function ENT:FollowEntity( ent, run, goaltoler )
 	while ( path:IsValid() and IsValid(ent) ) do
         if self.AbortMove == true then self.AbortMove = false self.IsMoving = false  return 'aborted' end 
 
-        if GetConVar('zetaplayer_debug'):GetInt() == 1 then
+        if GetConVar('zetaplayer_debug_displaypathfindingpaths'):GetInt() == 1 then
 			path:Draw()
         end
         
@@ -380,6 +391,7 @@ local doorClasses = {
 }
 
 function ENT:Adapt()
+    if self.TypingInChat then return end
     -- This allows the bot to open doors infront of it so it doesn't just give up when it finds out doors exists
     local qt = trace.QuickTrace(self:GetPos()+self:OBBCenter(),self:GetForward()*45,self) 
     local qtent = qt.Entity
@@ -466,6 +478,7 @@ end
 
 function ENT:CheckForLadders(path, pos)
     if !path or !path:IsValid() then return end
+    if self.NextLadderClimbT and CurTime() <= self.NextLadderClimbT then return end
 	local curGoal = path:GetCurrentGoal()
 	if !istable(curGoal) then return end
 	
@@ -479,6 +492,7 @@ function ENT:CheckForLadders(path, pos)
 	if self:GetRangeSquaredTo(ladderPos) < (64*64) then
 		self.PreventFalldamage = true
 		self:ClimbLadder(ladder, (moveType == 4 and "up" or "down"))
+        self.NextLadderClimbT = CurTime() + 0.66
 		path:Compute( self, pos, self:PathGenerator())
         self.InAir = false
 		self.PreventFalldamage = false
@@ -487,6 +501,8 @@ end
 
 function ENT:ClimbLadder(ladder,dir)
 	local nextSndTime = CurTime()
+
+    self.IsClimbingLadder = true
 
 	local startPos = ladder:GetTop()
 	local goalPos = ladder:GetBottom()
@@ -530,7 +546,7 @@ function ENT:ClimbLadder(ladder,dir)
             climbFract = 0
             local fwd = (finishPos - self:GetPos()):Angle():Forward()
             while ( true ) do
-                if CurTime() > forceStopTime then break end
+                if CurTime() > forceStopTime  then break end
                 climbFract = climbFract + climbSpeed
                 self:SetPos(preFinishPos+fwd*climbFract)
                 if climbFract >= preFinishPos:Distance(finishPos) then break end
@@ -541,6 +557,8 @@ function ENT:ClimbLadder(ladder,dir)
 
         coroutine.yield()
     end
+
+    self.IsClimbingLadder = false
 end
 
 
@@ -567,7 +585,52 @@ local PathTraceTable = {
 }
 
 
+
+
+local dynamicPathCvar = GetConVar("zetaplayer_usedynamicpathfinding")
 function ENT:PathGenerator()
+    local avoidObstacles = dynamicPathCvar:GetBool()
+    local stepHeight = self.loco:GetStepHeight()
+    local jumpHeight = self.loco:GetJumpHeight()
+    local deathHeight = -self.loco:GetDeathDropHeight()
+
+    return function(area, fromArea, ladder, elevator, length)
+        if !IsValid(fromArea) then return 0 end
+        if !self.loco:IsAreaTraversable(area) then return -1 end
+
+        local dist = 0
+        if IsValid(ladder) then
+            dist = ladder:GetBottom():DistToSqr(ladder:GetTop())
+        elseif length > 0 then
+            dist = length
+        else
+            dist = fromArea:GetCenter():DistToSqr(area:GetCenter())
+        end
+
+        local cost = (dist + fromArea:GetCostSoFar())
+        if !IsValid(ladder) then
+            local deltaZ = fromArea:ComputeAdjacentConnectionHeightChange(area)
+            if deltaZ > stepHeight then
+                if deltaZ > jumpHeight then return -1 end
+                local jumpPenalty = 10
+                cost = cost + jumpPenalty * dist
+            elseif deltaZ < deathHeight then
+                return -1
+            end
+        end
+
+        if avoidObstacles then
+            PathTraceTable.start = (area:GetCenter() + Vector(0, 0, 36))
+            PathTraceTable.endpos = (fromArea:GetCenter() + Vector(0, 0, 36))    
+            local pointTr = trace.TraceLine(PathTraceTable)
+            if pointTr.Hit then return -1 end
+        end
+
+        return cost
+    end
+end
+
+--[[ function ENT:PathGenerator()
 return function ( area, fromArea, ladder, elevator, length )
 
 
@@ -621,7 +684,7 @@ return function ( area, fromArea, ladder, elevator, length )
 
 
 
-        --[[ local zetatrace = util.TraceLine({
+        local zetatrace = util.TraceLine({
             start = fromArea:GetClosestPointOnArea(self:GetPos())+Vector(0,0,40),
             endpos = (area:GetCenter()+Vector(0,0,40)),
             ignoreworld = true,
@@ -634,7 +697,7 @@ return function ( area, fromArea, ladder, elevator, length )
         if zetatrace.Hit then
         print("Zeta sight Hit!",zetatrace.Entity)
             return -1
-        end ]]
+        end
 
 
         if GetConVar("zetaplayer_usedynamicpathfinding"):GetInt() == 1 then
@@ -662,9 +725,10 @@ return function ( area, fromArea, ladder, elevator, length )
 end
 
 
-end
+end ]]
 
 function ENT:Avoid()
+    if self.TypingInChat then return end
     local nw,ne,sw,se = self:CornerCheck()
 
     if nw.Hit and ne.Hit then self:MoveDir(self:GetForward()*-50)

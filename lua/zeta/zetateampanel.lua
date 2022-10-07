@@ -8,7 +8,8 @@ if SERVER then
     util.AddNetworkString('zetapanel_removeteam')
     util.AddNetworkString('zetapanel_addteam')
     util.AddNetworkString('zetapanel_setteam')
-
+    util.AddNetworkString('zetapanel_setrealteam')
+    util.AddNetworkString('zetapanel_removerealteam')
 
 
     net.Receive('zetapanel_setteam',function()
@@ -60,13 +61,29 @@ if SERVER then
 
             table.insert(decoded,team_)
             local encoded = util.TableToJSON(decoded,true)
-            file.Write("zetaplayerdata/teams.json",encoded)
+            ZetaFileWrite("zetaplayerdata/teams.json",encoded)
             ply:PrintMessage(HUD_PRINTCONSOLE,"Added "..team_[1].." to teams")
 
             net.Start('zeta_notifycleanup',true)
             net.WriteString("Added "..team_[1].." to teams")
             net.WriteBool(false)
             net.Send(ply)
+
+            if !_ZETATEAMS[team_[1]] then
+                for i = 1, 1000 do
+                    if !team.Valid(i) or team.GetName(i) == "Unassigned" then
+                        _ZETATEAMS[team_[1]] = i
+                        team.SetUp(i, team_[1], team_[2]:ToColor(), false)
+        
+                        local teamData = util.TableToJSON({i, team_[1], team_[2]:ToColor(), false})
+                        net.Start("zetapanel_setrealteam", true)
+                            net.WriteString(teamData)
+                        net.Send(ply)
+        
+                        break
+                    end
+                end
+            end
         
     end)
 
@@ -86,7 +103,7 @@ if SERVER then
         end
 
         local encoded = util.TableToJSON(teamtbl,true)
-        file.Write("zetaplayerdata/teams.json",encoded)
+        ZetaFileWrite("zetaplayerdata/teams.json",encoded)
 
         ply:PrintMessage(HUD_PRINTCONSOLE,"Removed "..team_[1].." from teams")
 
@@ -94,6 +111,18 @@ if SERVER then
         net.WriteString("Removed "..team_[1].." from teams")
         net.WriteBool(false)
         net.Send(ply)
+
+        if _ZETATEAMS[team_[1]] then
+            team.SetUp(_ZETATEAMS[team_[1]], "Unassigned", Color(255, 255, 100, 255), false)
+            if game.SinglePlayer() and Entity(1):Team() == _ZETATEAMS[team_[1]] then
+                Entity(1):SetTeam(1001)
+            end
+            _ZETATEAMS[team_[1]] = nil
+    
+            net.Start("zetapanel_removerealteam", true)
+                net.WriteString(team_[1])
+            net.Send(ply)
+        end
     
     end)
 
@@ -103,7 +132,7 @@ if SERVER then
         local Flags = ents.FindByClass("zeta_flag")
         local TEAMENTS = {spawns = {},kothpoints = {},flags = {}}
 
-        if #teamspawns == 0 and #KOTHMarkers == 0 then PrintMessage(HUD_PRINTTALK,"There are no Ents to save!") return end
+        if #teamspawns == 0 and #KOTHMarkers == 0 and #Flags == 0 then PrintMessage(HUD_PRINTTALK,"There are no Ents to save!") return end
 
         for k,spawn in ipairs(teamspawns) do
             local data = {
@@ -129,19 +158,36 @@ if SERVER then
                 name = point.customname,
                 zetateam = point.teamowner,
                 canpickup = point.CanBePickedUp,
+                custommodel = point.custommodel 
             }
 
             table.insert(TEAMENTS.flags,data)
         end
         
         local encodedjson = util.TableToJSON(TEAMENTS,true)
-        file.Write("zetaplayerdata/teamentdata/"..game.GetMap().."/"..filename..".json",encodedjson)
+        ZetaFileWrite("zetaplayerdata/teamentdata/"..game.GetMap().."/"..filename..".json",encodedjson)
         print("Successfully wrote all Team Related Entities to, ".."zetaplayerdata/teamentdata/"..game.GetMap().."/"..filename..".json")
     end
 
     function _ZetaReadAndInitializeTeamEnts(filepath)
         local TEAMENTFILE = file.Read(filepath)
         local ENTDATA = util.JSONToTable(TEAMENTFILE)
+
+        local teamspawns = ents.FindByClass("zeta_teamspawnpoint")
+        local KOTHMarkers = ents.FindByClass("zeta_koth")
+        local Flags = ents.FindByClass("zeta_flag")
+
+        local teaments = {}
+
+        table.Add(teaments,teamspawns)
+        table.Add(teaments,KOTHMarkers)
+        table.Add(teaments,Flags)
+
+        for k,v in ipairs(teaments) do
+            if IsValid(v) then
+                v:Remove()
+            end
+        end
 
         local Currentteams = {}
 
@@ -192,6 +238,7 @@ if SERVER then
             flag.customname = enttable.name
             flag.teamowner = enttable.zetateam
             flag.CanBePickedUp = enttable.canpickup
+            flag.custommodel = enttable.custommodel
             flag:Spawn()
 
             undo.Create("Zeta CTF Flag "..enttable.name)
@@ -214,6 +261,21 @@ if SERVER then
 
 
 elseif CLIENT then
+
+    local function GetSound(dir) 
+        local mp3check = string.EndsWith(dir,".mp3")
+        local wavcheck = string.EndsWith(dir,".wav")
+
+        if mp3check or wavcheck then
+            return dir
+        end
+
+        local files,dirs = file.Find("sound/"..dir,"GAME")
+        local replace = dir
+        pcall( function() replace = string.Replace((dir..files[math.random(#files)]),"*","") end )
+
+        return replace
+    end
     
 
 
@@ -233,6 +295,19 @@ elseif CLIENT then
 
             if isdone then -- Make the panel
 
+                if GetConVar("zetaplayer_panelbgm"):GetString() != "" then
+                    sound.PlayFile("sound/"..GetSound(GetConVar("zetaplayer_panelbgm"):GetString()), "", function(chan,errorid,erroname)
+                        if errorid then
+                            return
+                        end
+
+                        sndchan = chan
+                        sndchan:EnableLooping( true )
+                        sndchan:SetVolume(0.3)
+                    end)
+                end
+
+
                 notification.AddLegacy("Received all Teams! Took "..CurTime()-starttime.." seconds",NOTIFY_CLEANUP,4)
 
                 local frame = vgui.Create( 'DFrame' )
@@ -244,9 +319,15 @@ elseif CLIENT then
                 frame:SetSize(700,400)
                 frame:MakePopup()
 
+                function frame:OnClose()
+                    if IsValid(sndchan) then
+                        sndchan:Stop()
+                    end
+                end
+
                 local label = vgui.Create( 'DLabel', frame )
                 local teamadd = (GetConVar("zetaplayer_playerteam"):GetString() != "" and "Your current team is "..GetConVar("zetaplayer_playerteam"):GetString() or "You currently aren't in a team")
-                label:SetText("Welcome to the Team Panel! "..teamadd.."\n\nRight click a team row to remove it\n\nDouble Click a row to load it.\nAfter loading a team, you can press the 'Set as your team' button to set your team\n\nCreate a team to the right and press Submit Team when you're done")
+                label:SetText("Welcome to the Team Panel! "..teamadd.."\n\nRight click a team row to remove it\n\nDouble Click a row to load it.\nSelect a team in a row and press Set As Your Team to set your team\n\nCreate a team to the right and press Submit Team when you're done")
                 label:SetSize(500,500)
                 label:SetPos(0,-170)
                 
@@ -340,6 +421,13 @@ elseif CLIENT then
                 end
 
                 function panellist:OnRowRightClick(id,line)
+
+                    net.Receive("zetapanel_removerealteam", function(len, ply)
+                        local teamName = net.ReadString()
+                        team.SetUp(_ZETATEAMS[teamName], "Unassigned", Color(255, 255, 100, 255), false)            
+                        _ZETATEAMS[teamName] = nil
+                    end)
+                    
                     net.Start("zetapanel_removeteam")
                     net.WriteString(util.TableToJSON(line:GetSortValue(1)))
                     net.SendToServer()
@@ -356,22 +444,34 @@ elseif CLIENT then
                     local line = panellist:AddLine(data[1])
                     line:SetSortValue( 1, data )
 
+                    net.Receive("zetapanel_setrealteam", function(len, ply)
+                        local teamData = net.ReadString()
+                        if !teamData or string.len(teamData) <= 0 then return end
+                        local decoded = util.JSONToTable(teamData)
+                        _ZETATEAMS[decoded[2]] = decoded[1]
+                        team.SetUp(decoded[1], decoded[2], decoded[3], decoded[4])
+                    end)
+
                     net.Start("zetapanel_addteam")
                     net.WriteString(util.TableToJSON(data))
                     net.SendToServer()
+
+                    
                 end
 
                 function setteam:DoClick()
-                    local data = CompileTeamData()
-                    if !data then return end
+                    local id,line = panellist:GetSelectedLine()
+                    if !line then return end
+                    local data = line:GetSortValue(1)
                     LocalPlayer():EmitSound('buttons/button15.wav')
 
+                    
                     net.Start("zetapanel_setteam")
                     net.WriteString(data[1])
                     net.SendToServer()
                     timer.Simple(0,function()
                         local teamadd = (GetConVar("zetaplayer_playerteam"):GetString() != "" and "Your current team is "..GetConVar("zetaplayer_playerteam"):GetString() or "You currently aren't in a team")
-                        label:SetText("Welcome to the Team Panel! "..teamadd.."\n\nRight click a team row to remove it\n\nDouble Click a row to load it.\nAfter loading a team, you can press the 'Set as your team' button to set your team\n\nCreate a team to the right and press Submit Team when you're done")
+                        label:SetText("Welcome to the Team Panel! "..teamadd.."\n\nRight click a team row to remove it\n\nDouble Click a row to load it.\nSelect a team in a row and press Set As Your Team to set your team\n\nCreate a team to the right and press Submit Team when you're done")
 
                     end)
                 end
@@ -384,7 +484,7 @@ elseif CLIENT then
                     net.SendToServer()
                     timer.Simple(0,function()
                         local teamadd = (GetConVar("zetaplayer_playerteam"):GetString() != "" and "Your current team is "..GetConVar("zetaplayer_playerteam"):GetString() or "You currently aren't in a team")
-                        label:SetText("Welcome to the Team Panel! "..teamadd.."\n\nRight click a team row to remove it\n\nDouble Click a row to load it.\nAfter loading a team, you can press the 'Set as your team' button to set your team\n\nCreate a team to the right and press Submit Team when you're done")
+                        label:SetText("Welcome to the Team Panel! "..teamadd.."\n\nRight click a team row to remove it\n\nDouble Click a row to load it.\nSelect a team in a row and press Set As Your Team to set your team\n\nCreate a team to the right and press Submit Team when you're done")
 
                     end)
                 end

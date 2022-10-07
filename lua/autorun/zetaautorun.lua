@@ -8,16 +8,42 @@ local ents = ents
 local net = net
 local table = table
 local ipairs = ipairs
+local pairs = pairs
 local math = math
 local Vector = Vector 
 local Color = Color 
 local Material = Material
+local color_white = color_white
 
-local IsValid = IsValid
+local oldisvalid = IsValid
+
+local function IsValid( ent )
+    if oldisvalid( ent ) and ent.IsZetaPlayer then
+        
+        return !ent.IsDead 
+    else
+        return oldisvalid( ent )
+    end
+end
+
 
 _ZetasInstalled = true
+_ZetaWarnMultiplayer = true
 
 _bannedzetas = {}
+
+
+-- Now no one can screw up the file writing process
+function ZetaFileWrite( filename, contents )
+
+	local f = file.Open( filename, "wb", "DATA" )
+	if ( !f ) then return end
+
+	f:Write( contents )
+	f:Close()
+
+end
+
 
 
 include("zeta/zetamusicbox_net.lua")
@@ -25,20 +51,22 @@ include("zeta/consolecommands.lua")
 include("zeta/zetafilehandling.lua")
 include("zeta/zeta-voting.lua")
 include("zeta/koth_funcs.lua")
-
-
-
-
+include("zeta/ctf_funcs.lua")
+include("zeta/metafunctions.lua")
+include("zeta/tdm_funcs.lua")
 
 
 
 if ( SERVER ) then
+
+    
 
     function _ztrace()
         return Entity(1):GetEyeTrace().Entity
     end
 
 
+    util.AddNetworkString('zeta_notifycleanup')
     util.AddNetworkString('zeta_notifycleanup')
     util.AddNetworkString('zeta_playermodelcolor')
     util.AddNetworkString('zeta_voiceicon')
@@ -62,13 +90,9 @@ if ( SERVER ) then
     util.AddNetworkString("zetaplayer_eyetap")
     util.AddNetworkString("zeta_realplayerendvoice")
     util.AddNetworkString("zeta_changegetplayername")
+    util.AddNetworkString("zeta_flashbang_emitflash")
+    util.AddNetworkString( "zetaweaponcreator_updateweapons" )
 
-    -- Name panel
-    util.AddNetworkString('zetapanel_getnames')
-    util.AddNetworkString('zetapanel_sendnames')
-    util.AddNetworkString('zetapanel_resetnames')
-    util.AddNetworkString('zetapanel_removename')
-    util.AddNetworkString('zetapanel_addname')
 
     -- Team panel
 
@@ -159,321 +183,35 @@ util.PrecacheModel("models/player/zombie_fast.mdl")
 
 
 
+function _ZetaApplyPreset( convardata )
 
+    for k, v in pairs( convardata ) do
+        
+        local result = pcall( function() GetConVar( k ):SetString( v ) end )
 
+    end
 
-
-
-
-
-
-
-
-
-
-
-CreateConVar('zetaplayer_debug',0,FCVAR_NONE,"Enables the Zeta's debug text",0,1)
-CreateConVar('zetaplayer_consolelog',0,FCVAR_ARCHIVE,"Enables the Console logging of Zetas. Mimics ent spawning logs you see with players",0,1)
-CreateConVar('zetaplayer_allowtoolgunnonworld',1,FCVAR_ARCHIVE,'Allows the Zeta to toolgun non world ents',0,1)
-CreateConVar('zetaplayer_allowtoolgunworld',1,FCVAR_ARCHIVE,'Allows the Zeta to toolgun world ents',0,1)
-CreateConVar('zetaplayer_allowphysgunnonworld',1,FCVAR_ARCHIVE,'Allows the Zeta to physgun non world ents',0,1)
-CreateConVar('zetaplayer_allowphysgunworld',0,FCVAR_ARCHIVE,'Allows the Zeta to physgun world ents',0,1)
-CreateConVar('zetaplayer_allowphysgunplayers',0,FCVAR_ARCHIVE,'Allows the Zeta to physgun players',0,1)
-CreateConVar('zetaplayer_allowphysgunzetas',0,FCVAR_ARCHIVE,'Allows the Zeta to physgun other Zetas',0,1)
-CreateConVar('zetaplayer_allowcolortool',1,FCVAR_ARCHIVE,'Allows the Zeta to use the Color Tool',0,1)
-CreateConVar('zetaplayer_allowmaterialtool',1,FCVAR_ARCHIVE,'Allows the Zeta to use the Material Tool',0,1)
-CreateConVar('zetaplayer_allowropetool',1,FCVAR_ARCHIVE,'Allows the Zeta to use the Rope Tool',0,1)
-CreateConVar('zetaplayer_allowlighttool',1,FCVAR_ARCHIVE,'Allows the Zeta to use the Light Tool',0,1)
-CreateConVar('zetaplayer_allowmusicboxtool',1,FCVAR_ARCHIVE,'Allows the Zeta to use the Music Box Tool',0,1)
-CreateConVar('zetaplayer_allowtrailstool',1,FCVAR_ARCHIVE,'Allows the Zeta to use the Trails Tool',0,1)
-CreateConVar('zetaplayer_allowignitertool',1,FCVAR_ARCHIVE,'Allows the Zeta to use the Igniter Tool',0,1)
-CreateConVar('zetaplayer_allowballoontool',1,FCVAR_ARCHIVE,'Allows the Zeta to use the Balloon Tool',0,1)
-CreateConVar('zetaplayer_randomplayermodelcolor',1,FCVAR_ARCHIVE,'If Zeta models should have a random color applied',0,1)
-CreateConVar('zetaplayer_allowremovertool',0,FCVAR_ARCHIVE,'Allows the Zeta to use the Remover Tool',0,1)
-CreateConVar('zetaplayer_allowattacking',1,FCVAR_ARCHIVE,'Allows the Zeta to attack people',0,1)
-CreateConVar('zetaplayer_allowselfdefense',1,FCVAR_ARCHIVE,'Allows the Zeta to defend itself if it has a lethal weapon',0,1)
-CreateConVar('zetaplayer_allowdefendothers',1,FCVAR_ARCHIVE,'Allows the Zeta to defend other players or zetas if they are getting attacked',0,1)
-CreateConVar('zetaplayer_allowspawnmenu',1,FCVAR_ARCHIVE,'Allows the Zeta to use its spawnmenu',0,1)
-CreateConVar('zetaplayer_allowentities',0,FCVAR_ARCHIVE,'Allows the Zeta to spawn Entities',0,1)
-CreateConVar('zetaplayer_allownpcs',0,FCVAR_ARCHIVE,'Allows the Zeta to spawn NPCS',0,1)
-CreateConVar('zetaplayer_allowvehicles',1,FCVAR_ARCHIVE,'Allows the Zeta to use Vehicles',0,1)
-CreateConVar('zetaplayer_npclimit',1,FCVAR_ARCHIVE,'How much npcs a Zeta is allowed to spawn',0,100)
-CreateConVar('zetaplayer_allowfollowingfriend',1,FCVAR_ARCHIVE,'If Zetas are allowed to follow their friend',0,1)
-CreateConVar('zetaplayer_allowlaughing',1,FCVAR_ARCHIVE,'If Zetas are allowed to laugh at dead people',0,1)
-CreateConVar('zetaplayer_enablefriend',1,FCVAR_ARCHIVE,'Enable the Friend System',0,1)
-CreateConVar('zetaplayer_alternateidlesounds',1,FCVAR_ARCHIVE,'Toggle Alternate Idle sounds',0,1)
-CreateConVar('zetaplayer_wanderdistance',1500,FCVAR_ARCHIVE,'The max distance a Zeta can wander to',0,15000)
-CreateConVar('zetaplayer_overridemodel','',FCVAR_ARCHIVE,'Override the spawning model of a Zeta')
-CreateConVar('zetaplayer_spawnweapon','NONE',FCVAR_ARCHIVE,"Change the Zeta's spawning weapon")
-CreateConVar('zetaplayer_naturalspawnweapon','NONE',FCVAR_ARCHIVE,"Change the natural Zeta's spawning weapon")
-CreateConVar('zetaplayer_panicthreshold',0.3,FCVAR_ARCHIVE,"Health Threshold where if the a Zeta's health is below it, it may panic",0,1)
-CreateConVar('zetaplayer_allowlargeprops',1,FCVAR_ARCHIVE,'If Zetas are allowed to spawn large props',0,1)
-CreateConVar('zetaplayer_propspawnunfrozen',0,FCVAR_ARCHIVE,'If Props should spawn unfrozen. This will cause lag!',0,1)
-CreateConVar('zetaplayer_mapwidespawning',0,FCVAR_ARCHIVE,'If Zetas should naturally spawn map wide. This will automatically create Zetas',0,1)
-CreateConVar('zetaplayer_mapwidespawningzetaamount',10,FCVAR_ARCHIVE,'How many Zetas should spawn when using map wide spawning',1,300)
-CreateConVar('zetaplayer_voicevolume',1,FCVAR_ARCHIVE,'The Volume of Zeta Voices',0.1,10.0)
-CreateConVar('zetaplayer_removepropsondeath',1,FCVAR_ARCHIVE,"If a Zeta's props should be removed upon removal. You probably shouldn't touch this unless you want their props to be saved",0,1)
-CreateConVar('zetaplayer_freezelargeprops',1,FCVAR_ARCHIVE,'If a large prop spawned by a Zeta should be frozen. To prevent any physics crash from large props',0,1)
-CreateConVar('zetaplayer_ignorezetas',0,FCVAR_NONE,'If the Zetas should ignore each other',0,1)
-CreateConVar('zetaplayer_randomplayermodels',0,FCVAR_ARCHIVE,'Allows the Zetas to have random playermodels',0,1)
-CreateConVar('zetaplayer_randomdefaultplayermodels',0,FCVAR_ARCHIVE,'If the random playermodels should only be from the base game',0,1)
-CreateConVar('zetaplayer_lightlimit',5,FCVAR_ARCHIVE,'How much lights a Zeta is allowed to spawn',1,30)
-CreateConVar('zetaplayer_musicboxlimit',1,FCVAR_ARCHIVE,'How much music boxes a Zeta is allowed to spawn',1,30)
-CreateConVar('zetaplayer_balloonlimit',5,FCVAR_ARCHIVE,'How much balloons a Zeta is allowed to spawn',1,100)
-CreateConVar('zetaplayer_ropelimit',5,FCVAR_ARCHIVE,'How much ropes a Zeta is allowed to place',1,100)
-CreateConVar('zetaplayer_proplimit',50,FCVAR_ARCHIVE,'How much props a Zeta is allowed to spawn',1,500)
-CreateConVar('zetaplayer_sentlimit',10,FCVAR_ARCHIVE,'How much SENTS a Zeta is allowed to spawn',1,200)
-CreateConVar('zetaplayer_usealternatedeathsounds',0,FCVAR_ARCHIVE,'Play alternate deaths sounds apart from the kleiner death sound',0,1)
-CreateConVar('zetaplayer_cleanupcorpse',0,FCVAR_ARCHIVE,'If dead Zetas should be cleaned',0,1)
-CreateConVar('zetaplayer_cleanupcorpseeffect',1,FCVAR_ARCHIVE,'If Corpses should play a effect before being removed',0,1)
-CreateConVar('zetaplayer_mapwidespawninguseplayerstart',0,FCVAR_ARCHIVE,'If Natural Zetas should spawn at Player Spawnpoints',0,1)
-CreateConVar('zetaplayer_cleanupcorpsetime',15,FCVAR_ARCHIVE,'The time before corpses should be cleaned',1,190)
-CreateConVar('zetaplayer_disabled',0,FCVAR_NONE,'Disables the Zeta from thinking',0,1)
-CreateConVar('zetaplayer_custommusiconly',0,FCVAR_ARCHIVE,'If Custom Music should only be played by Zeta Music Boxes',0,1)
-CreateConVar('zetaplayer_musicvolume',1,FCVAR_ARCHIVE,'The volume of music played by the Music Box',0,10)
-CreateConVar('zetaplayer_allowpainvoice',1,FCVAR_ARCHIVE,'If Zetas should make pain sounds',0,1)
-CreateConVar('zetaplayer_allowpanicvoice',1,FCVAR_ARCHIVE,'If Zetas should make panic sounds',0,1)
-CreateConVar('zetaplayer_allowidlevoice',1,FCVAR_ARCHIVE,'If Zetas should make idle sounds',0,1)
-CreateConVar('zetaplayer_allowdeathvoice',1,FCVAR_ARCHIVE,'If Zetas should make death sounds',0,1)
-CreateConVar('zetaplayer_allowar2altfire',1,FCVAR_ARCHIVE,'If Zetas are allowed to use the AR2 alt fire',0,1)
-CreateConVar('zetaplayer_allowbackstabbing',1,FCVAR_ARCHIVE,'If Zetas are allowed to have increased attack damage when backstabbing with a knife',0,1)
-CreateConVar('zetaplayer_allowwitnesssounds',1,FCVAR_ARCHIVE,'If Zetas are allowed to make witness sounds',0,1)
-CreateConVar('zetaplayer_allowfalldamage',1,FCVAR_ARCHIVE,'If Zetas should take fall damage',0,1)
-CreateConVar('zetaplayer_allowrealisticfalldamge',0,FCVAR_ARCHIVE,'If Zetas should take realistic fall damage. Note, Fall damage must be on for this to apply',0,1)
-CreateConVar('zetaplayer_allowfaceposertool',1,FCVAR_ARCHIVE,'If Zetas are allowed to use the Faceposer tool',0,1)
-CreateConVar('zetaplayer_allowemittertool',1,FCVAR_ARCHIVE,'If Zetas are allowed to use the Emitter tool',0,1)
-CreateConVar('zetaplayer_emitterlimit',2,FCVAR_ARCHIVE,'How much emitters a Zeta is allowed to spawn',1,100)
-CreateConVar('zetaplayer_allowmlgshots',1,FCVAR_ARCHIVE,'If Zetas are allowed to have increased attack damage randomly with the AWP',0,1)
-CreateConVar('zetaplayer_drawcameraflashing',0,FCVAR_ARCHIVE,'If Zeta Cameras are allowed to emit a flash',0,1)
-CreateConVar('zetaplayer_bonemanipulatortool',1,FCVAR_ARCHIVE,'If Zetas are allowed to use the Bone Manipulator Tool',0,1)
-CreateConVar('zetaplayer_allowdynamitetool',1,FCVAR_ARCHIVE,'If Zetas are allowed to use the Dynamite tool',0,1)
-CreateConVar('zetaplayer_dynamitelimit',2,FCVAR_ARCHIVE,'How much dynamite a Zeta is allowed to spawn',1,100)
-CreateConVar('zetaplayer_allowcameraaslethalweapon',0,FCVAR_ARCHIVE,'If Zetas are allowed to equip the camera when trying to defend themselves',0,1)
-CreateConVar('zetaplayer_allowpainttool',1,FCVAR_ARCHIVE,'If Zetas are allowed to use the Paint Tool',0,1)
-CreateConVar('zetaplayer_allowkillvoice',1,FCVAR_ARCHIVE,'If Zetas can speak a line when killing someone',0,1)
-CreateConVar('zetaplayer_allowtauntvoice',1,FCVAR_ARCHIVE,'If Zetas can taunt before attacking someone or defend themselves',0,1)
-CreateConVar('zetaplayer_permamentfriend','',FCVAR_ARCHIVE,'If a Zeta spawns with provided name, they will always be your friend')
-CreateConVar('zetaplayer_zetaspawnersaveidentity',1,FCVAR_ARCHIVE,'If Zeta Spawners should save identities',0,1)
-CreateConVar('zetaplayer_allowzetascreenshots',0,FCVAR_ARCHIVE,'If Zetas are allowed to request and take screenshots',0,1)
-CreateConVar('zetaplayer_ignoresmallnavareas',0,FCVAR_ARCHIVE,'If Zetas should ignore smaller nav areas',0,1)
-CreateConVar('zetaplayer_allowdisconnecting',0,FCVAR_ARCHIVE,'If Zetas are allowed to disconnect from your game',0,1)
-CreateConVar('zetaplayer_voicedsp',"normal",FCVAR_ARCHIVE,"The DSP effect on the Zeta's voice",0,1)
-CreateConVar('zetaplayer_allowvoicepopup',0,FCVAR_ARCHIVE,"If speaking Zetas should have a voice chat popup",0,1)
-CreateConVar('zetaplayer_globalvoicechat',0,FCVAR_ARCHIVE,"If speaking Zeta voice should be hard globally just like real players",0,1)
-CreateConVar('zetaplayer_usecustomavatars',0,FCVAR_ARCHIVE,"If Zetas should use custom profile pictures from custom_avatars",0,1)
-CreateConVar('zetaplayer_limitdsp',1,FCVAR_ARCHIVE,"Limits the amount of Zetas that can have DSP effects. TURN THIS OFF AT YOUR OWN RISK! This is supposed to keep source from crashing because of all the sounds it has to process!",0,1)
-CreateConVar('zetaplayer_showprofilepicturesintab',0,FCVAR_ARCHIVE,"If tab menu should display zeta profile pictures",0,1)
-CreateConVar('zetaplayer_dsplimit',7,FCVAR_ARCHIVE,"The amount of Zetas that are allowed to have DSP effects",1,7)
-CreateConVar('zetaplayer_zetahealth',100,FCVAR_ARCHIVE,"The amount of health Zetas will spawn with",1,10000)
-CreateConVar('zetaplayer_naturalspawnrate',2,FCVAR_ARCHIVE,"The spawn rate in seconds for natural zetas to spawn",0.1,120)
-CreateConVar('zetaplayer_permamentfriendalwaysspawn',0,FCVAR_ARCHIVE,"If your permament friend should always be in game",0,1)
-CreateConVar('zetaplayer_allowassistsound',1,FCVAR_ARCHIVE,"If Zetas should speak on assists",0,1)
-CreateConVar('zetaplayer_dropweapons',0,FCVAR_ARCHIVE,"If Zetas should drop their weapons if they die",0,1)
-CreateConVar('zetaplayer_showpfpoverhealth',0,FCVAR_ARCHIVE,"If Zetas should show their profile picture when you hover over them",0,1)
-CreateConVar('zetaplayer_naturalzetahealth',100,FCVAR_ARCHIVE,"The amount of health Natural Zetas will spawn with",1,10000)
-CreateConVar('zetaplayer_allowstrafing',1,FCVAR_ARCHIVE,"If Zetas should strafe when attacking",0,1)
-CreateConVar('zetaplayer_triggermines', 1, FCVAR_ARCHIVE, 'Makes Zetas trigger nearby Combine Mines to explode', 0, 1)
-CreateConVar('zetaplayer_triggermines_hoptime', 0.5, FCVAR_ARCHIVE, 'Time required for the mine to hop towards a target after triggering it', 0, 5)
---[[ CreateConVar('zetaplayer_allowdirectingmissiles', 0, FCVAR_ARCHIVE, 'If Zetas can direct their rockets', 0, 1)
-CreateConVar('zetaplayer_missileinaccuracy', 0, FCVAR_ARCHIVE, 'The inaccuracy of directed missiles', 0, 5000) ]]
-CreateConVar('zetaplayer_disableunstuck', 0, FCVAR_ARCHIVE, 'Disable the Unstuck system. Why?', 0, 1)
-CreateConVar('zetaplayer_killontouchnodraworsky', 1, FCVAR_ARCHIVE, 'If Zetas should die when they are touching a nodraw surface or sky surface', 0, 1)
-CreateConVar('zetaplayer_customidlelinesonly', 0, FCVAR_ARCHIVE, 'If Custom Idle Lines should only be used', 0, 1)
-CreateConVar('zetaplayer_customdeathlinesonly', 0, FCVAR_ARCHIVE, 'If Custom Death Lines should only be used', 0, 1)
-CreateConVar('zetaplayer_customkilllinesonly', 0, FCVAR_ARCHIVE, 'If Custom Kill Lines should only be used', 0, 1)
-CreateConVar('zetaplayer_customtauntlinesonly', 0, FCVAR_ARCHIVE, 'If Custom Kill Lines should only be used', 0, 1)
-CreateConVar('zetaplayer_combatinaccuracy', 0, FCVAR_ARCHIVE, 'The addition to inaccuracy of Zetas in combat', -3, 3)
-CreateConVar('zetaplayer_damagedivider', 1, FCVAR_ARCHIVE, 'The amount damage will be divided by', 1, 10)
-CreateConVar('zetaplayer_explosivecorpsecleanup', 0, FCVAR_ARCHIVE, 'If Corpses should blow up when they are cleaned', 0, 10)
-CreateConVar('zetaplayer_useprofilesystem',0,FCVAR_ARCHIVE,'Use Zeta Profile Database to load data from instead of randomizing it',0,1)
-CreateConVar('zetaplayer_norepeatingpfps',0,FCVAR_ARCHIVE,'If enabled, prevents Zetas from having the same profile picture used again',0,1)
-CreateConVar('zetaplayer_usenewvoicechatsystem',0,FCVAR_ARCHIVE,'If Zetas speaking should use the new voice chat system | Community Contribute',0,1)
-CreateConVar('zetaplayer_allowsprays',0,FCVAR_ARCHIVE,'If Zetas are allowed to use sprays | Community Contribute',0,1)
-CreateConVar('zetaplayer_alwayshuntfortargets',0,FCVAR_ARCHIVE,'If Zetas should always hunt for a target',0,1)
-CreateConVar('zetaplayer_allowuse+onprops',1,FCVAR_ARCHIVE,'If Zetas are allowed to pickup props with use+',0,1)
-CreateConVar('zetaplayer_allowlamptool',1,FCVAR_ARCHIVE,'If Zetas are allowed to use the Lamp tool',0,1)
-CreateConVar('zetaplayer_lamplimit',1,FCVAR_ARCHIVE,'Lamp Limit',1,30)
-CreateConVar('zetaplayer_allowthrustertool',1,FCVAR_ARCHIVE,'If Zetas are allowed to use the Thruster tool',0,1)
-CreateConVar('zetaplayer_thrusterlimit',5,FCVAR_ARCHIVE,'Thruster Limit',1,60)
-CreateConVar('zetaplayer_forceadd',0,FCVAR_ARCHIVE,'The amount to add to Damage Force',0,10000)
-CreateConVar('zetaplayer_musicplayonce',0,FCVAR_ARCHIVE,'If Music Boxes should only play once and remove themselves',0,1)
-CreateConVar('zetaplayer_musicshuffle',1,FCVAR_ARCHIVE,'If Music Boxes should pick music randomly',0,1)
-CreateConVar('zetaplayer_showzetalogonscreen',0,FCVAR_ARCHIVE,'If Zeta Events should show up on screen',0,1)
-CreateConVar('zetaplayer_thrusterunfreeze',0,FCVAR_ARCHIVE,'If Zeta Thrusters should unfreeze whatever they are welded to',0,1)
-CreateConVar('zetaplayer_differentvoicepitch',0,FCVAR_ARCHIVE,'If Zetas should have different pitches in voice',0,1)
-CreateConVar('zetaplayer_voicepitchmin',80,FCVAR_ARCHIVE,'Voice pitch min and max',10,100)
-CreateConVar('zetaplayer_voicepitchmax',130,FCVAR_ARCHIVE,'Voice pitch min and max',100,255)
-CreateConVar('zetaplayer_mingebag',0,FCVAR_ARCHIVE,'If Zetas should be a mingebag',0,1)
-CreateConVar('zetaplayer_mapwidemingebag',0,FCVAR_ARCHIVE,'If Natural Zetas should be a mingebag',0,1)
-CreateConVar('zetaplayer_mapwidemingebagspawnchance',10,FCVAR_ARCHIVE,'The chance a natural Zeta will spawn as a mingebag',1,100)
-CreateConVar('zetaplayer_allowscoldvoice',1,FCVAR_ARCHIVE,'If Admins should scold their offender',0,1)
-CreateConVar('zetaplayer_zetaspawnerrespawntime',1,FCVAR_ARCHIVE,'Respawning Zeta spawn rate',0,120)
-CreateConVar('zetaplayer_playersizedsprays',1,FCVAR_ARCHIVE,'If Sprays should mimic the size of real player sprays',0,1)
-CreateConVar('zetaplayer_enabledrowning',1,FCVAR_ARCHIVE,'If Zetas should drown in water',0,1)
-CreateConVar('zetaplayer_bugbait_limit',4,FCVAR_ARCHIVE,'The amount of antlions a Zeta can summon',1,30)
-CreateConVar('zetaplayer_bugbait_lifetime',10,FCVAR_ARCHIVE,'The amount of time antlions can live for',0,120)
-CreateConVar('zetaplayer_bugbait_spawnhp',30,FCVAR_ARCHIVE,'The amount of health antlions will spawn with',1,500)
-CreateConVar('zetaplayer_jpgpropamount',15,FCVAR_ARCHIVE,'The amount of props the JPG will fire',1,15)
-CreateConVar('zetaplayer_c4debris',0,FCVAR_ARCHIVE,'If C4 should create debris on explosion',0,1)
-CreateConVar('zetaplayer_c4card',0,FCVAR_ARCHIVE,'If C4 should show up in a MW2 Card if the addon is installed',0,1)
-
-CreateConVar('zetaplayer_serverjunk',0,FCVAR_ARCHIVE,'If Props should be spawned when the player loads in',0,1)
-CreateConVar('zetaplayer_freezeserverjunk',0,FCVAR_ARCHIVE,'If server junk should spawn frozen',0,1)
-CreateConVar('zetaplayer_serverjunkcount',45,FCVAR_ARCHIVE,'The amount of props that will spawn on the map',0,400)
-
-
-
-CreateConVar('zetaplayer_customwitnesslinesonly', 0, FCVAR_ARCHIVE, 'If Custom Witness Lines should only be used', 0, 1)
-CreateConVar('zetaplayer_custompaniclinesonly', 0, FCVAR_ARCHIVE, 'If Custom Panic Lines should only be used', 0, 1)
-CreateConVar('zetaplayer_customassistlinesonly', 0, FCVAR_ARCHIVE, 'If Custom Assist Lines should only be used', 0, 1)
-CreateConVar('zetaplayer_customlaughlinesonly', 0, FCVAR_ARCHIVE, 'If Custom Laughing Lines should only be used', 0, 1)
-CreateConVar('zetaplayer_customadminscoldlinesonly', 0, FCVAR_ARCHIVE, 'If Custom Admin Scolding Lines should only be used', 0, 1)
-
-
-
-
-
-CreateConVar('zetaplayer_useteamsystem',0,FCVAR_ARCHIVE,'If Zetas should join a team if they can',0,1)
-CreateConVar('zetaplayer_eachteammemberlimit',3,FCVAR_ARCHIVE,'How many members can be in a team',2,100)
-CreateConVar('zetaplayer_playerteam','',FCVAR_ARCHIVE,'What Team real players should be in')
-CreateConVar('zetaplayer_overrideteam','',FCVAR_ARCHIVE,'What Team Zetas should be forced in')
-
-
-CreateConVar('zetaplayer_randombodygroups',1,FCVAR_ARCHIVE,'If Zetas should have random bodygroups',0,1)
-CreateConVar('zetaplayer_randomskingroups',1,FCVAR_ARCHIVE,'If Zetas should have random skins',0,1)
-
-CreateConVar('zetaplayer_personalitytype','random',FCVAR_ARCHIVE,'Type of personality the Zeta will be')
-CreateConVar('zetaplayer_buildchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_combatchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_toolchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_physgunchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_disrespectchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_watchmediaplayerchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_friendlychance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_voicechance',30,FCVAR_ARCHIVE,'voice Chance',0,100)
-CreateConVar('zetaplayer_vehiclechance',30,FCVAR_ARCHIVE,'Vehicle Chance',0,100)
-
-
-CreateConVar('zetaplayer_naturalpersonalitytype','random',FCVAR_ARCHIVE,'Type of personality the Zeta will be')
-CreateConVar('zetaplayer_naturalbuildchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_naturalcombatchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_naturaltoolchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_naturalphysgunchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_naturaldisrespectchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_naturalwatchmediaplayerchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_naturalfriendlychance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_naturalvoicechance',30,FCVAR_ARCHIVE,'voice Chance',0,100)
-CreateConVar('zetaplayer_naturalvehiclechance',30,FCVAR_ARCHIVE,'Vehicle Chance',0,100)
-
-
-
-
-CreateConVar('zetaplayer_friendusecustomcolors',0,FCVAR_ARCHIVE,"Playermodel Color",0,1)
-CreateConVar('zetaplayer_friendplayermodelcolorR',0,FCVAR_ARCHIVE,"Playermodel Color",0,255)
-CreateConVar('zetaplayer_friendplayermodelcolorG',0,FCVAR_ARCHIVE,"Playermodel Color",0,255)
-CreateConVar('zetaplayer_friendplayermodelcolorB',0,FCVAR_ARCHIVE,"Playermodel Color",0,255)
-
-CreateConVar('zetaplayer_friendusephysguncolor',0,FCVAR_ARCHIVE,"Physgun Color",0,1)
-CreateConVar('zetaplayer_friendphysguncolorR',0,FCVAR_ARCHIVE,"Physgun Color",0,255)
-CreateConVar('zetaplayer_friendphysguncolorG',0,FCVAR_ARCHIVE,"Physgun Color",0,255)
-CreateConVar('zetaplayer_friendphysguncolorB',0,FCVAR_ARCHIVE,"Physgun Color",0,255)
-
-CreateConVar('zetaplayer_friendhealth',100,FCVAR_ARCHIVE,"The amount of health your friend will spawn with",1,10000)
-CreateConVar('zetaplayer_friendprofilepicture', "", FCVAR_ARCHIVE, "Permament Friend Zeta's Profile Picture")
-CreateConVar('zetaplayer_friendcustomidlelinesonly', 0, FCVAR_ARCHIVE, 'If Custom Idle Lines should only be used', 0, 1)
-CreateConVar('zetaplayer_friendcustomdeathlinesonly', 0, FCVAR_ARCHIVE, 'If Custom Death Lines should only be used', 0, 1)
-CreateConVar('zetaplayer_friendcustomkilllinesonly', 0, FCVAR_ARCHIVE, 'If Custom Kill Lines should only be used', 0, 1)
-CreateConVar('zetaplayer_friendcustomtauntlinesonly', 0, FCVAR_ARCHIVE, 'If Custom Taunt Lines should only be used', 0, 1)
-CreateConVar('zetaplayer_friendcustompaniclinesonly', 0, FCVAR_ARCHIVE, 'If Custom Panic Lines should only be used', 0, 1)
-CreateConVar('zetaplayer_friendcustomassistlinesonly', 0, FCVAR_ARCHIVE, 'If Custom Assist Lines should only be used', 0, 1)
-CreateConVar('zetaplayer_friendcustomlaughlinesonly', 0, FCVAR_ARCHIVE, 'If Custom Laughing Lines should only be used', 0, 1)
-CreateConVar('zetaplayer_friendcustomwitnesslinesonly', 0, FCVAR_ARCHIVE, 'If Custom Witness Lines should only be used', 0, 1)
-CreateConVar('zetaplayer_friendcustomadminscoldlinesonly', 0, FCVAR_ARCHIVE, 'If Custom Admin Scolding Lines should only be used', 0, 1)
-
-
-CreateConVar('zetaplayer_friendisadmin', 0, FCVAR_ARCHIVE, 'If the permanent friend should be a admin', 0, 1)
-
-CreateConVar('zetaplayer_friendoverridemodel','',FCVAR_ARCHIVE,'Override the spawning model of a Zeta')
-CreateConVar('zetaplayer_friendpersonalitytype','random',FCVAR_ARCHIVE,'Type of personality the Zeta will be')
-CreateConVar('zetaplayer_friendbuildchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_friendcombatchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_friendtoolchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_friendphysgunchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_frienddisrespectchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_friendwatchmediaplayerchance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_friendfriendlychance',30,FCVAR_ARCHIVE,'Personality Chance',0,100)
-CreateConVar('zetaplayer_friendvoicechance',30,FCVAR_ARCHIVE,'voice Chance',0,100)
-CreateConVar('zetaplayer_friendvehiclechance',30,FCVAR_ARCHIVE,'Vehicle Chance',0,100)
-CreateConVar('zetaplayer_friendspawnweapon','NONE',FCVAR_ARCHIVE,"Change the permament friend Zeta's spawning weapon")
-
---CreateConVar('zetaplayer_laughingchance',6,FCVAR_ARCHIVE,'Vehicle Chance',0,100)
-
-
-
-
--- Admin Convars 
-CreateConVar('zetaplayer_admindisplaynameRed',0,FCVAR_ARCHIVE,'Red value of the display name color',0,255)
-CreateConVar('zetaplayer_admindisplaynameGreen',148,FCVAR_ARCHIVE,'Green value of the display name color',0,255)
-CreateConVar('zetaplayer_admindisplaynameBlue',255,FCVAR_ARCHIVE,'Blue value of the display name color',0,255)
-
-CreateConVar('zetaplayer_adminoverridemodel','models/player/police.mdl',FCVAR_ARCHIVE,'Override the spawning model of a Admin Zeta')
-CreateConVar('zetaplayer_spawnasadmin',0,FCVAR_ARCHIVE,'If Admins should spawn',0,1)
-CreateConVar('zetaplayer_forcespawnadmins',0,FCVAR_ARCHIVE,'If Zetas that you spawn next should become admins',0,1)
-CreateConVar('zetaplayer_adminrule_nopropkill',1,FCVAR_ARCHIVE,'Enforce no prop killing',0,1)
-CreateConVar('zetaplayer_adminrule_rdm',1,FCVAR_ARCHIVE,'Enforce no random killing.',0,1)
-CreateConVar('zetaplayer_adminrule_griefing',1,FCVAR_ARCHIVE,'Enforce no altering of other entities that you do not own.',0,1)
-CreateConVar('zetaplayer_admintreatowner',0,FCVAR_ARCHIVE,'If admins should treat you as the owner and ignore your rulebreaking',0,1)
-CreateConVar('zetaplayer_adminprintecho',1,FCVAR_ARCHIVE,'If admins using commands should have their commands echo into chat',0,1)
-CreateConVar('zetaplayer_adminsctrictnessmin',0,FCVAR_ARCHIVE,'How Strict and harsh should the admins be',0,100)
-CreateConVar('zetaplayer_adminsctrictnessmax',30,FCVAR_ARCHIVE,'How Strict and harsh should the admins be',0,100)
-CreateConVar('zetaplayer_adminshouldsticktogether',0,FCVAR_ARCHIVE,'If admins should stick together most of the time',0,1)
-CreateConVar('zetaplayer_admincount',1,FCVAR_ARCHIVE,'How many Admins can there be',1,100)
-
-
-CreateConVar('zetaplayer_allowpistol',1,FCVAR_ARCHIVE,'Allows the Zeta to equip the pistol',0,1)
-CreateConVar('zetaplayer_allowar2',1,FCVAR_ARCHIVE,'Allows the Zeta to equip the ar2',0,1)
-CreateConVar('zetaplayer_allowshotgun',1,FCVAR_ARCHIVE,'Allows the Zeta to equip the shotgun',0,1)
-CreateConVar('zetaplayer_allowsmg',1,FCVAR_ARCHIVE,'Allows the Zeta to equip the smg',0,1)
-CreateConVar('zetaplayer_allowrpg',1,FCVAR_ARCHIVE,'Allows the Zeta to equip the rpg',0,1)
-CreateConVar('zetaplayer_allowcrowbar',1,FCVAR_ARCHIVE,'Allows the Zeta to equip the crowbar',0,1)
-CreateConVar('zetaplayer_allowstunstick',1,FCVAR_ARCHIVE,'Allows the Zeta to equip the stunstick',0,1)
-CreateConVar('zetaplayer_allowrevolver',1,FCVAR_ARCHIVE,'Allows the Zeta to equip the revolver',0,1)
-CreateConVar('zetaplayer_allowtoolgun',1,FCVAR_ARCHIVE,'Allows the Zeta to equip the toolgun',0,1)
-CreateConVar('zetaplayer_allowphysgun',1,FCVAR_ARCHIVE,'Allows the Zeta to equip the physgun',0,1)
-CreateConVar('zetaplayer_allowknife',1,FCVAR_ARCHIVE,'Allows the Zeta to equip the knife',0,1)
-CreateConVar('zetaplayer_allowfist',1,FCVAR_ARCHIVE,'Allows the Zeta to use their fists',0,1)
-CreateConVar('zetaplayer_allowcrossbow',1,FCVAR_ARCHIVE,'Allows the Zeta to use the crossbow',0,1)
-CreateConVar('zetaplayer_allowm4a1',1,FCVAR_ARCHIVE,'Allows the Zeta to use the m4a1',0,1)
-CreateConVar('zetaplayer_allowawp',1,FCVAR_ARCHIVE,'Allows the Zeta to use the awp',0,1)
-CreateConVar('zetaplayer_allowcamera',1,FCVAR_ARCHIVE,'Allows the Zeta to use the camera',0,1)
-CreateConVar('zetaplayer_allowwrench',1,FCVAR_ARCHIVE,'Allows the Zeta to use the Wrench',0,1)
-CreateConVar('zetaplayer_allowscattergun',1,FCVAR_ARCHIVE,'Allows the Zeta to use the Scatter gun',0,1)
-CreateConVar('zetaplayer_allowtf2pistol',1,FCVAR_ARCHIVE,'Allows the Zeta to use the TF2 Pistol',0,1)
-CreateConVar('zetaplayer_allowak47',1,FCVAR_ARCHIVE,'Allows the Zeta to use the AK47',0,1)
-CreateConVar('zetaplayer_allowmachinegun',1,FCVAR_ARCHIVE,'Allows the Zeta to use the Machine Gun',0,1)
-CreateConVar('zetaplayer_allowdeagle',1,FCVAR_ARCHIVE,'Allows the Zeta to use the Desert Eagle',0,1)
-CreateConVar('zetaplayer_allowtf2sniper',1,FCVAR_ARCHIVE,'Allows the Zeta to use the TF2 Sniper',0,1)
-CreateConVar('zetaplayer_allowtf2shotgun',1,FCVAR_ARCHIVE,'Allows the Zeta to use the TF2 Shotgun',0,1)
-CreateConVar('zetaplayer_allowgrenades',1,FCVAR_ARCHIVE,'Allows the Zeta to use Grenades',0,1)
-CreateConVar('zetaplayer_allowmp5',1,FCVAR_ARCHIVE,'Allows the Zeta to use MP5',0,1)
-CreateConVar('zetaplayer_allowjpg',1,FCVAR_ARCHIVE,'Allows the Zeta to use the JPG',0,1)
-
-
-
-
-
-
-
+end
 
 
 if ( SERVER ) then
 
-
     net.Receive("zeta_realplayerendvoice",function(len,ply)
         hook.Run("ZetaRealPlayerEndVoice",ply)
     end)
+    
+    net.Receive( "zetapanel_setpresetsserverside", function( len, ply )
+        if !ply:IsSuperAdmin() then return end
 
+        local bytes = net.ReadUInt( 32 )
+        local data = net.ReadData( bytes )
 
+        data = util.Decompress( data )
+        data = util.JSONToTable( data )
+        
+        _ZetaApplyPreset( data )
+    
+    end )
 
     net.Receive('zeta_csragdollexplode', function()
         local blastSrc = net.ReadVector()
@@ -519,7 +257,7 @@ if ( SERVER ) then
             if !table.HasValue(decoded,_string) then ply:PrintMessage(HUD_PRINTCONSOLE,_string.." is not Registered!") return end
             table.RemoveByValue(decoded,_string)
             local encoded = util.TableToJSON(decoded,true)
-            file.Write("zetaplayerdata/names.json",encoded)
+            ZetaFileWrite("zetaplayerdata/names.json",encoded)
             ply:PrintMessage(HUD_PRINTCONSOLE,"Removed ".._string.." from Zeta's names")
     end)
 
@@ -540,7 +278,7 @@ if ( SERVER ) then
                  end
             table.insert(decoded,_string)
             local encoded = util.TableToJSON(decoded,true)
-            file.Write("zetaplayerdata/names.json",encoded)
+            ZetaFileWrite("zetaplayerdata/names.json",encoded)
             ply:PrintMessage(HUD_PRINTCONSOLE,"Added ".._string.." To Zeta's names")
 
             net.Start('zeta_notifycleanup',true)
@@ -605,10 +343,16 @@ if ( SERVER ) then
     
     hook.Add('PlayerSpawnedNPC','zetaSetCreator',function(ply,ent)
         timer.Simple(0, function()
-            if IsValid(ent) and ent:GetClass() == 'npc_zetaplayer' then
+            if IsValid(ent) and (ent:GetClass() == 'npc_zetaplayer') or IsValid(ent) and ent:GetClass() == "zeta_zetaplayerspawner" then
                 ent:SetCreator(ply)
             end
         end)
+    end)
+
+    hook.Add("PostEntityPaste","zetaSetDupeCreator",function(ply,ent,tbl)
+        for k,v in ipairs(tbl) do
+            v:SetCreator(ply)
+        end
     end)
 
     hook.Add("OnEntityCreated","zeta_Createmedkittimers",function(ent)
@@ -621,6 +365,7 @@ if ( SERVER ) then
         end)
     
     end)
+
 
 
     hook.Add("PlayerSpawnedSENT","zeta_setmedkitcreators",function(ply,ent)
@@ -683,6 +428,9 @@ if ( SERVER ) then
 
     
     end)
+
+
+
 
 
 
@@ -764,117 +512,12 @@ if ( SERVER ) then
         end
     end)
 
-    local areas = navmesh.GetAllNavAreas()
-    local removezetas = false
-    local area
-    local point
-    naturalzetas = {}
-    local rate = CurTime()+GetConVar("zetaplayer_naturalspawnrate"):GetFloat()
-    local firstspawndelay = CurTime()+6
-    hook.Add("Think","zetamapwidespawn",function()
-        if CurTime() < firstspawndelay then return end
-        if CurTime() < rate then return end
-        rate = GetConVar("zetaplayer_mapwidespawningrandom"):GetInt() == 1 and CurTime()+math.Rand(0.1,GetConVar("zetaplayer_naturalspawnrate"):GetFloat()) or CurTime()+GetConVar("zetaplayer_naturalspawnrate"):GetFloat()
-        if GetConVar('zetaplayer_mapwidespawning'):GetInt() == 0 then
-             if removezetas then 
-                removezetas = false  
-                for k,v in ipairs(naturalzetas) do
-                    if v:IsValid() then
-                        v:Remove()
-                    end
-                end
-
-                for k,v in ipairs(ents.FindByClass('npc_zetaplayer')) do
-                    if v:IsValid() and v.IsNatural then
-                        v:Remove()
-                    end
-                end
-            end 
-            return 
-        end
-        if #naturalzetas > GetConVar('zetaplayer_mapwidespawningzetaamount'):GetInt() then naturalzetas[math.random(#naturalzetas)]:Remove() return end
-        if #naturalzetas >= GetConVar('zetaplayer_mapwidespawningzetaamount'):GetInt() then return end
-        removezetas = true
-        if GetConVar('zetaplayer_mapwidespawninguseplayerstart'):GetInt() == 0 then
-        area = areas[math.random(#areas)]
-        if !area or !area:IsValid() then
-            areas = navmesh.GetAllNavAreas()
-            area = areas[math.random(#areas)]
-        end
-
-        if !area or !area:IsValid() then
-            return
-        end
-        if area:IsUnderwater() then return end
-            point = area:GetRandomPoint()
-        else
-            local info_player_starts = ents.FindByClass('info_player_start')
-            local info_player_teamspawns = ents.FindByClass("info_player_teamspawn")
-            local info_player_terrorist = ents.FindByClass("info_player_terrorist")
-            local info_player_counterterrorist = ents.FindByClass("info_player_counterterrorist")
-            local info_player_combine = ents.FindByClass("info_player_combine")
-            local info_player_rebel = ents.FindByClass("info_player_rebel")
-            local info_player_allies = ents.FindByClass("info_player_allies")
-            local info_player_axis = ents.FindByClass("info_player_axis")
-            local info_coop_spawn = ents.FindByClass("info_coop_spawn")
-            local info_survivor_position = ents.FindByClass("info_survivor_position")
-            table.Add(info_player_starts,info_player_teamspawns)
-            table.Add(info_player_starts,info_player_terrorist)
-            table.Add(info_player_starts,info_player_counterterrorist)
-            table.Add(info_player_starts,info_player_combine)
-            table.Add(info_player_starts,info_player_rebel)
-            table.Add(info_player_starts,info_player_allies)
-            table.Add(info_player_starts,info_player_axis)
-            table.Add(info_player_starts,info_coop_spawn)
-            table.Add(info_player_starts,info_survivor_position)
-            local spawn = info_player_starts[math.random(#info_player_starts)]
-            if IsValid(spawn) then
-                point = spawn:GetPos()
-            else
-                print('MAP WIDE SPAWNER WARNING: Player Spawn Is not Valid!')
-                return
-            end
-        end
 
 
-        if !GetConVar("zetaplayer_mwsspawnrespawningzetas"):GetBool() then
-            local zeta = ents.Create('npc_zetaplayer')
-            table.insert(naturalzetas,zeta)
-            zeta:CallOnRemove('zetacallonremove'..zeta:EntIndex(),function()
-                table.RemoveByValue(naturalzetas,zeta)
-            end)
-
-
-            zeta:SetPos(point)
-            zeta:SetAngles(Angle(0,math.random(0,360,0),0))
-            zeta.IsNatural = true
-            zeta.NaturalWeapon = GetConVar("zetaplayer_naturalspawnweapon"):GetString()
-            zeta:Spawn()
-            zeta:EmitSound(GetConVar("zetaplayer_customspawnsound"):GetString() != "" and GetConVar("zetaplayer_customspawnsound"):GetString() or 'zetaplayer/misc/spawn_zeta.wav',60)
-        else
-            local zeta = ents.Create('zeta_zetaplayerspawner')
-            table.insert(naturalzetas,zeta)
-            zeta:CallOnRemove('zetacallonremove'..zeta:EntIndex(),function()
-                table.RemoveByValue(naturalzetas,zeta)
-            end)
-
-
-            zeta:SetPos(point)
-            zeta:SetAngles(Angle(0,math.random(0,360,0),0))
-            zeta.IsNatural = true
-            zeta.NaturalWeapon = GetConVar("zetaplayer_naturalspawnweapon"):GetString()
-            zeta:Spawn()
-            zeta:EmitSound(GetConVar("zetaplayer_customspawnsound"):GetString() != "" and GetConVar("zetaplayer_customspawnsound"):GetString() or 'zetaplayer/misc/spawn_zeta.wav',60)
-
-        end
-        
-
-    end)
-
-
-
-
-
+    
+    --Mws used to be here 
+    -- It was moved to a new lua file cause that's more organized
+    -- mapwidespawning.lua
 
 
     function FindZetaByName(name)
@@ -883,11 +526,11 @@ if ( SERVER ) then
         local foundzeta
         name = string.lower(name)
 
-        for k,zeta in ipairs(zetas) do
-            if !IsValid(zeta) then continue end
-            local find,b,c = string.find(string.lower(zeta.zetaname),name)
+        for i=1,#zetas do
+            if !IsValid(zetas[i]) then continue end
+            local find,b,c = string.find(string.lower(zetas[i].zetaname),name)
             if isnumber(find) then
-                foundzeta = zeta
+                foundzeta = zetas[i]
                 break
             end
         end
@@ -895,201 +538,377 @@ if ( SERVER ) then
         return foundzeta
     end
 
+
+    function ZetaGetPermanentFriends()
+        local json = file.Read("zetaplayerdata/profiles.json")
+        local friends = {}
+        if json then
+            
+            local profiles = util.JSONToTable(json)
+
+            for k,v in pairs(profiles) do
+                if v.permafriend then
+                    friends[#friends+1] = k
+                end
+            end
+        end
+        return friends
+    end
+
+
+    function _ZetaCheckCurrentDate()
+
+
+        _ZetaSpecificDay = "None"
+        local month = os.date("%B")
+        local weekday = tonumber(os.date("%d"))
+      
+      
+        local split
+        local birthdaytxt = file.Read("zetaplayerdata/player_birthday.txt","DATA")
+        
+        if birthdaytxt then
+          split = string.Explode(" ",birthdaytxt)
+        end
+        
+         
+        if birthdaytxt and split[1] and split[1] == month and split[2] and tonumber(split[2]) == weekday then
+          _ZetaSpecificDay = "birthday"
+          return
+        elseif month == "July" and weekday == 4 then
+          _ZetaSpecificDay = "4thjuly"
+        elseif month == "November" and weekday == 24 then
+          _ZetaSpecificDay = "thanksgiving"
+        elseif month == "December" and weekday == 25 then
+          _ZetaSpecificDay = "christmas"
+        elseif month == "January" and weekday == 1 then
+          _ZetaSpecificDay = "newyear"
+        elseif month == "April" and weekday == 9 then
+          _ZetaSpecificDay = "easter"
+        elseif month == "April" and weekday == 7 then
+          _ZetaSpecificDay = "addoncreatorbirthday"
+        elseif month == "May" and weekday == 29 then
+          _ZetaSpecificDay = "addoncreationday"
+        end 
+        
+      end
+
+
+
+    function ZetaCheckForMissingFiles( ply )
+
+        print( "--- Profile Validator ---\n\n" )
+
+        local hasproblem = false
+        
+
+        local profiles = file.Read( "zetaplayerdata/profiles.json" )
+
+        if profiles then
+
+            profiles = util.JSONToTable( profiles )
+            
+            for k, prf in pairs( profiles ) do
+                
+                if prf[ "playermodel" ] then
+                    
+                    local mdlexists = file.Exists( prf[ "playermodel" ], "GAME" )
+
+                    
+
+                    if !mdlexists then
+
+                        hasproblem = true
+                        
+                        print( " Profile Validator Warning: " .. k .. " has a non existent model! (" .. prf[ "playermodel" ] .. ")" )
+
+                    end
+
+                end
+
+                if prf[ "weapon" ] then
+                    
+                    if !_ZetaWeaponDataTable[ prf[ "weapon" ] ] then
+
+                        hasproblem = true
+                        
+                        print( " Profile Validator Warning: " .. k .. " has a non existent weapon! (" .. prf[ "weapon" ] .. ")" )
+
+                    end
+
+                end
+
+                if prf[ "favouriteweapon" ] then
+                    
+                    if !_ZetaWeaponDataTable[ prf[ "favouriteweapon" ] ] then
+
+                        hasproblem = true
+                        
+                        print( " Profile Validator Warning: " .. k .. " has a non existent favorite weapon! (" .. prf[ "favouriteweapon" ] .. ")" )
+
+                    end
+
+                end
+
+                if prf[ "voicepack" ] then
+
+                    local addon = prf[ "voicepack" ].."/"
+
+                    local exists = file.Exists( "sourceengine/sound/zetaplayer/custom_vo/"..addon.."idle", "BASE_PATH" ) or file.Exists( "sound/zetaplayer/custom_vo/"..addon.."idle", "GAME" )
+                    
+                    
+
+                    if !exists then
+
+                        hasproblem = true
+
+                        print( " Profile Validator Warning: " .. k .. " has a non existent Voice Pack! (" .. prf[ "voicepack" ] .. ")" )
+                        
+                    end
+
+                end
+
+            end
+
+            
+
+        end
+
+        print( "Profile Validation Done" )
+
+
+        print( "\n\n--- Weapon Validator ---\n\n" )
+
+        local weapondata = file.Read( "zetaplayerdata/weapondata.dat" )
+
+        if weapondata then
+            
+            weapondata = util.Decompress( weapondata )
+            weapondata = util.JSONToTable( weapondata )
+
+            for weaponname, data in pairs( weapondata ) do
+                
+                if !file.Exists( data.mdl, "GAME" ) then
+                    
+                    hasproblem = true
+
+                    print( "Custom Weapon Validator Warning: Custom Weapon " .. k .. " ".. "{" .. data.prettyPrint.. "}" .. " has a error model! (" .. data.mdl .. ")" )
+
+                end
+
+            end
+
+
+        end
+
+        print( "Weapon Validation Done" )
+
+
+        print( hasproblem and "Validation finished. One or more issues were found" or "Validation successful! No problems found" )
+
+    end
+
+    concommand.Add( "zetaplayer_validatefiles", ZetaCheckForMissingFiles )
     
     
     
     -- More Erma's contributes v v v v v v
     hook.Add('OnEntityCreated', 'zetaSpawnedEntitySupport',function(ent)
-        if !ent:IsValid() then return end 
+        if !IsValid(ent) then return end 
+            timer.Simple(0,function()
+            if !IsValid(ent) then return end
 
-        local entClass = ent:GetClass()
-        if entClass == 'npc_sanic' or (ent:IsNextBot() and isfunction(ent.AttackNearbyTargets)) then
-            ent.ZetaHook_ClosestZeta = NULL
+            local entClass = ent:GetClass()
+            if entClass == 'npc_sanic' or (ent:IsNextBot() and isfunction(ent.AttackNearbyTargets)) then
+                ent.ZetaHook_ClosestZeta = NULL
 
-            local id = ent:GetCreationID()
-            hook.Add('Think', 'zeta_sanicNextbotsSupport_'..id, function()
-                if !IsValid(ent) then hook.Remove('Think', 'zeta_sanicNextbotsSupport_'..id) return end
-                
-                local scanTime = GetConVar(entClass..'_expensive_scan_interval'):GetInt() or 1
-                if (CurTime() - ent.LastTargetSearch) > scanTime then
-                    ent.ZetaHook_ClosestZeta = NULL
+                local id = ent:GetCreationID()
+                hook.Add('Think', 'zeta_sanicNextbotsSupport_'..id, function()
+                    if !IsValid(ent) then hook.Remove('Think', 'zeta_sanicNextbotsSupport_'..id) return end
                     
-                    local lastDist = math.huge
-                    local chaseDist = GetConVar(entClass..'_acquire_distance'):GetInt() or 2500
-                    for _, v in ipairs(ents.FindByClass('npc_zetaplayer')) do
-                        if !v.IsZetaPlayer or v.IsDead then continue end
-                        local distSqr = ent:GetRangeSquaredTo(v)
-                        if distSqr <= (chaseDist*chaseDist) and distSqr < lastDist then
-                            ent.ZetaHook_ClosestZeta = v
-                            lastDist = distSqr
-                        end
-                    end
-                end
-
-                local closestZeta = ent.ZetaHook_ClosestZeta
-                if !IsValid(closestZeta) then return end 
-                
-                local curTarget = ent.CurrentTarget
-                local zetaDist = ent:GetRangeSquaredTo(closestZeta)
-                
-                if ent.CurrentTarget != closestZeta then
-                    if !IsValid(curTarget) or (ent:GetRangeSquaredTo(curTarget) > zetaDist and closestZeta != curTarget) then
-                        ent.CurrentTarget = closestZeta
-                    end
-                elseif !closestZeta.IsDead then
-                    local dmgDist = GetConVar(entClass..'_attack_distance'):GetInt() or 80
-                    if zetaDist > (dmgDist*dmgDist) then return end
-                    
-                    local startHP = closestZeta:Health()
-
-                    local attackForce = GetConVar(entClass..'_attack_force'):GetInt() or 800
-                    if isfunction(ent.AttackOpponent) then
-                        ent:AttackOpponent(closestZeta, ent:GetPos(), attackForce)
-                    else
-                        local dmgInfo = DamageInfo()
-                        dmgInfo:SetAttacker(ent)
-                        dmgInfo:SetInflictor(ent)
-                        dmgInfo:SetDamage(1e8)
-                        dmgInfo:SetDamagePosition(ent:GetPos())
-                        dmgInfo:SetDamageForce(((closestZeta:GetPos() - ent:GetPos()):GetNormal()*attackForce + ent:GetUp()*500)*100)
-                        closestZeta:TakeDamageInfo(dmgInfo)
-
-                        ent:EmitSound("physics/body/body_medium_impact_hard"..math.random(6)..".wav", 350, 120)
-                    end
-
-                    if closestZeta:Health() < startHP then 
-                        if ent.TauntSounds and (CurTime() - ent.LastTaunt) > 1.2 then
-                            ent.LastTaunt = CurTime()
-                            local snd = ent.TauntSounds[math.random(#ent.TauntSounds)]
-                            if snd == nil then snd = ent.TauntSounds end
-                            if isstring(snd) then
-                                ent:EmitSound(snd, 350, 100)
+                    local scanTime = GetConVar(entClass..'_expensive_scan_interval'):GetInt() or 1
+                    if (CurTime() - ent.LastTargetSearch) > scanTime then
+                        ent.ZetaHook_ClosestZeta = NULL
+                        
+                        local lastDist = math.huge
+                        local chaseDist = GetConVar(entClass..'_acquire_distance'):GetInt() or 2500
+                        local zetas = ents.FindByClass('npc_zetaplayer')
+                        for i=1, #zetas do
+                            if !zetas[i].IsZetaPlayer or zetas[i].IsDead then continue end
+                            local distSqr = ent:GetRangeSquaredTo(zetas[i])
+                            if distSqr <= (chaseDist*chaseDist) and distSqr < lastDist then
+                                ent.ZetaHook_ClosestZeta = zetas[i]
+                                lastDist = distSqr
                             end
                         end
-
-                        
-
-                        ent.LastTargetSearch = 0
                     end
+
+                    local closestZeta = ent.ZetaHook_ClosestZeta
+                    if !IsValid(closestZeta) then return end 
+                    
+                    local curTarget = ent.CurrentTarget
+                    local zetaDist = ent:GetRangeSquaredTo(closestZeta)
+                    
+                    if ent.CurrentTarget != closestZeta then
+                        if !IsValid(curTarget) or (ent:GetRangeSquaredTo(curTarget) > zetaDist and closestZeta != curTarget) then
+                            ent.CurrentTarget = closestZeta
+                        end
+                    elseif !closestZeta.IsDead then
+                        local dmgDist = GetConVar(entClass..'_attack_distance'):GetInt() or 80
+                        if zetaDist > (dmgDist*dmgDist) then return end
+                        
+                        local startHP = closestZeta:Health()
+
+                        local attackForce = GetConVar(entClass..'_attack_force'):GetInt() or 800
+                        if isfunction(ent.AttackOpponent) then
+                            ent:AttackOpponent(closestZeta, ent:GetPos(), attackForce)
+                        else
+                            local dmgInfo = DamageInfo()
+                            dmgInfo:SetAttacker(ent)
+                            dmgInfo:SetInflictor(ent)
+                            dmgInfo:SetDamage(1e8)
+                            dmgInfo:SetDamagePosition(ent:GetPos())
+                            dmgInfo:SetDamageForce(((closestZeta:GetPos() - ent:GetPos()):GetNormal()*attackForce + ent:GetUp()*500)*100)
+                            closestZeta:TakeDamageInfo(dmgInfo)
+
+                            ent:EmitSound("physics/body/body_medium_impact_hard"..math.random(6)..".wav", 350, 120)
+                        end
+
+                        if closestZeta:Health() < startHP then 
+                            if ent.TauntSounds and (CurTime() - ent.LastTaunt) > 1.2 then
+                                ent.LastTaunt = CurTime()
+                                local snd = ent.TauntSounds[math.random(#ent.TauntSounds)]
+                                if snd == nil then snd = ent.TauntSounds end
+                                if isstring(snd) then
+                                    ent:EmitSound(snd, 350, 100)
+                                end
+                            end
+
+                            
+
+                            ent.LastTargetSearch = 0
+                        end
+                    end
+                end)
+            end
+
+            if GetConVar('zetaplayer_triggermines'):GetInt() != 1 or ent:GetClass() != 'combine_mine' then return end
+            
+            // Initialize mine's variables
+            ent.MineHopTarget = ent.MineHopTarget or NULL
+            ent.MineCurrentState = ent.MineCurrentState or 1
+            ent.NextMineThinkTime = ent.NextMineThinkTime or CurTime() + 0.1
+            
+            // Add think hook
+            hook.Add('Think', 'mineZetaTrigger'..ent:EntIndex(), function()
+                if !IsValid(ent) then hook.Remove('Think', 'mineZetaTrigger'..ent:EntIndex()) return end
+                
+                // If mine is not placed by a real player and it's at default state, search for zetas
+                if CurTime() > ent.NextMineThinkTime and ent:GetInternalVariable('m_bPlacedByPlayer') != true then
+                    if ent.MineCurrentState == 1 then 
+                        if ent:GetInternalVariable('m_iMineState') == 3 then
+                            // Loop through all entities with 'npc_zetaplayer' classname
+                            local zetas = ents.FindByClass('npc_zetaplayer')
+                            for i=1, #zetas do
+                                // If zeta is near my by 100 units and visible to me, trigger the mine
+                                if zetas[i]:GetPos():Distance(ent:GetPos()) <= 100 and ent:Visible(zetas[i]) then
+                                    // Increment mine's state value
+                                    ent.MineCurrentState = ent.MineCurrentState + 1
+        
+                                    // Set mine's target
+                                    ent.MineHopTarget = zetas[i]
+                                    
+                                    // Disarm mine so it won't get interrupted by another target
+                                    ent:Input('Disarm')
+        
+                                    // Play trigger sound
+                                    ent:EmitSound('npc/roller/blade_in.wav', 70)
+        
+                                    // Nudge
+                                    local phys = ent:GetPhysicsObject()
+                                    if phys:IsValid() then
+                                        local vecNudge = Vector(math.Rand(-1, 1), math.Rand(-1, 1), 1.5) * 350
+                                        phys:Wake()
+                                        phys:ApplyForceCenter(vecNudge)
+                                    end
+        
+                                    // Set mine's next think time to ConVar's value
+                                    ent.NextMineThinkTime = CurTime() + GetConVar('zetaplayer_triggermines_hoptime'):GetFloat()
+                                    return
+                                end
+                            end
+                        end
+                    elseif ent.MineCurrentState == 2 then
+                        // Play hop sound
+                        ent:EmitSound('npc/roller/mine/rmine_blip3.wav', 70)
+        
+                        // The next code is adapted from HL2 source code
+                        local phys = ent:GetPhysicsObject()
+                        if phys:IsValid() then
+                            local maxJumpHeight = 200
+        
+                            // Figure out how much headroom the mine has, and hop to within a few inches of that.
+                            local tr = util.TraceLine({
+                                start = ent:GetPos(),
+                                endpos = ent:GetPos() + Vector(0, 0, maxJumpHeight),
+                                mask = MASK_SHOT,
+                                filter = {ent},
+                                collisiongroup = COLLISION_GROUP_INTERACTIVE
+                            })
+        
+                            local height
+                            if IsValid(tr.Entity) and IsValid(tr.Entity:GetPhysicsObject()) then
+                                // Physics object resting on me. Jump as hard as allowed to try to knock it away.
+                                height = maxJumpHeight
+                            else
+                                height = tr.HitPos.z - ent:GetPos().z
+                                height = height - 24
+                                if height < 0.1 then height = 0.1 end
+                            end
+        
+                            local gravity = GetConVar('sv_gravity'):GetFloat()
+                            local time = math.sqrt( height / (0.5 * gravity) )
+                            local velocity = gravity * time
+        
+                            // or you can just AddVelocity to the object instead of ApplyForce
+                            local force = velocity * phys:GetMass()
+        
+                            phys:Wake()
+                            phys:ApplyForceCenter( ent:GetUp() * force )
+        
+                            local target = ent.MineHopTarget
+                            if IsValid(target) and !target.IsDead then
+                                local vecPredict = target.loco:GetVelocity()
+                                phys:ApplyForceCenter( vecPredict * 10 )
+                            end
+                        end
+        
+                        // Increment mine's state value
+                        ent.MineCurrentState = ent.MineCurrentState + 1
+        
+                        // If mine touches something, explode
+                        ent:AddCallback('PhysicsCollide', function(ent, data)                                 
+                            // Create explosion
+                            local explode = ents.Create('env_explosion')
+                            explode:SetPos(ent:GetPos())
+                            explode:SetAngles(ent:GetAngles())
+                            explode:SetOwner(ent)
+                            explode:SetKeyValue('iMagnitude', 150.0)        // Damage
+                            explode:SetKeyValue('iRadiusOverride', 125.0)   // Radius
+                            explode:Spawn()
+                            explode:Input('Explode')                        // And finally, explode the explosion
+        
+                            // Remove the mine
+                            ent:Remove()
+                        end)
+        
+                        hook.Remove('Think', 'mineZetaTrigger'..ent:EntIndex())
+                        return
+                    end
+        
+                    ent.NextMineThinkTime = CurTime() + 0.1
                 end
             end)
-        end
-
-        if GetConVar('zetaplayer_triggermines'):GetInt() != 1 or ent:GetClass() != 'combine_mine' then return end
-        
-        // Initialize mine's variables
-        ent.MineHopTarget = ent.MineHopTarget or NULL
-        ent.MineCurrentState = ent.MineCurrentState or 1
-        ent.NextMineThinkTime = ent.NextMineThinkTime or CurTime() + 0.1
-        
-        // Add think hook
-        hook.Add('Think', 'mineZetaTrigger'..ent:EntIndex(), function()
-            if !IsValid(ent) then hook.Remove('Think', 'mineZetaTrigger'..ent:EntIndex()) return end
-            
-            // If mine is not placed by a real player and it's at default state, search for zetas
-            if CurTime() > ent.NextMineThinkTime and ent:GetInternalVariable('m_bPlacedByPlayer') != true then
-                if ent.MineCurrentState == 1 then 
-                    if ent:GetInternalVariable('m_iMineState') == 3 then
-                        // Loop through all entities with 'npc_zetaplayer' classname
-                        for _, v in ipairs(ents.FindByClass('npc_zetaplayer')) do
-                            // If zeta is near my by 100 units and visible to me, trigger the mine
-                            if v:GetPos():Distance(ent:GetPos()) <= 100 and ent:Visible(v) then
-                                // Increment mine's state value
-                                ent.MineCurrentState = ent.MineCurrentState + 1
-    
-                                // Set mine's target
-                                ent.MineHopTarget = v
-                                
-                                // Disarm mine so it won't get interrupted by another target
-                                ent:Input('Disarm')
-    
-                                // Play trigger sound
-                                ent:EmitSound('npc/roller/blade_in.wav', 70)
-    
-                                // Nudge
-                                local phys = ent:GetPhysicsObject()
-                                if phys:IsValid() then
-                                    local vecNudge = Vector(math.Rand(-1, 1), math.Rand(-1, 1), 1.5) * 350
-                                    phys:Wake()
-                                    phys:ApplyForceCenter(vecNudge)
-                                end
-    
-                                // Set mine's next think time to ConVar's value
-                                ent.NextMineThinkTime = CurTime() + GetConVar('zetaplayer_triggermines_hoptime'):GetFloat()
-                                return
-                            end
-                        end
-                    end
-                elseif ent.MineCurrentState == 2 then
-                    // Play hop sound
-                    ent:EmitSound('npc/roller/mine/rmine_blip3.wav', 70)
-    
-                    // The next code is adapted from HL2 source code
-                    local phys = ent:GetPhysicsObject()
-                    if phys:IsValid() then
-                        local maxJumpHeight = 200
-    
-                        // Figure out how much headroom the mine has, and hop to within a few inches of that.
-                        local tr = util.TraceLine({
-                            start = ent:GetPos(),
-                            endpos = ent:GetPos() + Vector(0, 0, maxJumpHeight),
-                            mask = MASK_SHOT,
-                            filter = {ent},
-                            collisiongroup = COLLISION_GROUP_INTERACTIVE
-                        })
-    
-                        local height
-                        if IsValid(tr.Entity) and IsValid(tr.Entity:GetPhysicsObject()) then
-                            // Physics object resting on me. Jump as hard as allowed to try to knock it away.
-                            height = maxJumpHeight
-                        else
-                            height = tr.HitPos.z - ent:GetPos().z
-                            height = height - 24
-                            if height < 0.1 then height = 0.1 end
-                        end
-    
-                        local gravity = GetConVar('sv_gravity'):GetFloat()
-                        local time = math.sqrt( height / (0.5 * gravity) )
-                        local velocity = gravity * time
-    
-                        // or you can just AddVelocity to the object instead of ApplyForce
-                        local force = velocity * phys:GetMass()
-    
-                        phys:Wake()
-                        phys:ApplyForceCenter( ent:GetUp() * force )
-    
-                        local target = ent.MineHopTarget
-                        if IsValid(target) and !target.IsDead then
-                            local vecPredict = target.loco:GetVelocity()
-                            phys:ApplyForceCenter( vecPredict * 10 )
-                        end
-                    end
-    
-                    // Increment mine's state value
-                    ent.MineCurrentState = ent.MineCurrentState + 1
-    
-                    // If mine touches something, explode
-                    ent:AddCallback('PhysicsCollide', function(ent, data)                                 
-                        // Create explosion
-                        local explode = ents.Create('env_explosion')
-                        explode:SetPos(ent:GetPos())
-                        explode:SetAngles(ent:GetAngles())
-                        explode:SetOwner(ent)
-                        explode:SetKeyValue('iMagnitude', 150.0)        // Damage
-                        explode:SetKeyValue('iRadiusOverride', 125.0)   // Radius
-                        explode:Spawn()
-                        explode:Input('Explode')                        // And finally, explode the explosion
-    
-                        // Remove the mine
-                        ent:Remove()
-                    end)
-    
-                    hook.Remove('Think', 'mineZetaTrigger'..ent:EntIndex())
-                    return
-                end
-    
-                ent.NextMineThinkTime = CurTime() + 0.1
-            end
         end)
     end)
 
@@ -1111,7 +930,7 @@ if ( SERVER ) then
             if attacker.zetaTeam then
               teamname = " {"..attacker.zetaTeam.."}"
             end
-            local killIcon = attacker.WeaponKillIcons[attacker.Weapon]
+            local killIcon = _ZetaWeaponKillIcons[attacker.Weapon]
 
               data = {
                 attacker = attacker.zetaname..teamname,
@@ -1141,7 +960,7 @@ if ( SERVER ) then
             if attacker.zetaTeam then
               teamname = " {"..attacker.zetaTeam.."}"
             end
-            local killIcon = attacker.WeaponKillIcons[attacker.Weapon]
+            local killIcon = _ZetaWeaponKillIcons[attacker.Weapon]
               data = {
                 attacker = attacker.zetaname..teamname,
                 attackerteam = 0,
@@ -1164,7 +983,7 @@ if ( SERVER ) then
     hook.Add("PostEntityTakeDamage","zetaADMIN_Rules_Dmg",function(victim,dmginfo)
         if !game.SinglePlayer() then return end
         
-        if victim:GetClass() == "npc_zetaplayer" or victim:IsPlayer() then
+        if victim.IsZetaPlayer or victim:IsPlayer() then
 
             local nopropkill = GetConVar("zetaplayer_adminrule_nopropkill"):GetBool()
             local noRDM = GetConVar("zetaplayer_adminrule_rdm"):GetBool()
@@ -1253,6 +1072,7 @@ if ( SERVER ) then
         if IsValid(targ) and targ:IsPlayer() and targ.IsJailed then return true end
         if IsValid(targ) and targ.IsZetaPlayer and targ.IsJailed then return true end
         if IsValid(targ) and targ.zetaIngodmode then return true end
+        if IsValid(targ) and targ:IsPlayer() and !GetConVar("zetaplayer_enablefriendlyfire"):GetBool() and IsInTeam(dmginfo:GetAttacker()) then return true end
         if IsValid(targ) and IsValid(dmginfo:GetAttacker()) and dmginfo:GetAttacker():IsPlayer() and dmginfo:GetAttacker().IsJailed then return true end
     end)
 
@@ -1276,9 +1096,9 @@ if ( SERVER ) then
             local teamspawns = ents.FindByClass("zeta_teamspawnpoint")
             if #teamspawns > 0 then
                 local spawns = {}
-                for k,v in ipairs(teamspawns) do
-                    if v:GetTeamSpawn() == GetConVar("zetaplayer_playerteam"):GetString() then
-                        spawns[#spawns+1] = v
+                for i=1, #teamspawns do
+                    if teamspawns[i]:GetTeamSpawn() == GetConVar("zetaplayer_playerteam"):GetString() then
+                        spawns[#spawns+1] = teamspawns[i]
                     end
                 end
                 local spawn = spawns[math.random(#spawns)]
@@ -1289,14 +1109,25 @@ if ( SERVER ) then
         end
     end)
 
+    function IsInTeam(ent)
 
+        if ent:IsNextBot() and ent.IsZetaPlayer then
+          if GetConVar('zetaplayer_playerteam'):GetString() != '' and  ent.zetaTeam == GetConVar('zetaplayer_playerteam'):GetString() then
+            return true
+          else
+            return false
+          end
+        end
+      
+      
+      end
 
     function RemoveJailOnEnt(ply)
         
         if ply.zetaJailEnts then
-            for k,prop in ipairs(ply.zetaJailEnts) do
-                if IsValid(prop) then
-                    prop:Remove()
+            for i=1, #ply.zetaJailEnts do
+                if IsValid(ply.zetaJailEnts[i]) then
+                    ply.zetaJailEnts[i]:Remove()
                 end
             end
 
@@ -1310,14 +1141,14 @@ if ( SERVER ) then
         local mdl1 = Model( "models/props_building_details/Storefront_Template001a_Bars.mdl" )
     
         local jail = { -- ULX Jail
-            { pos = Vector( 0, 0, -5 ), ang = Angle( 90, 0, 0 ), mdl=mdl1 },
-            { pos = Vector( 0, 0, 97 ), ang = Angle( 90, 0, 0 ), mdl=mdl1 },
-            { pos = Vector( 21, 31, 46 ), ang = Angle( 0, 90, 0 ), mdl=mdl1 },
-            { pos = Vector( 21, -31, 46 ), ang = Angle( 0, 90, 0 ), mdl=mdl1 },
-            { pos = Vector( -21, 31, 46 ), ang = Angle( 0, 90, 0 ), mdl=mdl1 },
-            { pos = Vector( -21, -31, 46), ang = Angle( 0, 90, 0 ), mdl=mdl1 },
-            { pos = Vector( -52, 0, 46 ), ang = Angle( 0, 0, 0 ), mdl=mdl1 },
-            { pos = Vector( 52, 0, 46 ), ang = Angle( 0, 0, 0 ), mdl=mdl1 },
+            { Vector( 0, 0, -5 ), Angle( 90, 0, 0 )},
+            { Vector( 0, 0, 97 ), Angle( 90, 0, 0 )},
+            { Vector( 21, 31, 46 ), Angle( 0, 90, 0 )},
+            { Vector( 21, -31, 46 ), Angle( 0, 90, 0 )},
+            { Vector( -21, 31, 46 ), Angle( 0, 90, 0 )},
+            { Vector( -21, -31, 46), Angle( 0, 90, 0 )},
+            { Vector( -52, 0, 46 ), Angle( 0, 0, 0 )},
+            { Vector( 52, 0, 46 ), Angle( 0, 0, 0 )},
         }
     
     
@@ -1325,11 +1156,11 @@ if ( SERVER ) then
             ply:SetMoveType(MOVETYPE_WALK)
         end
     
-        for _, v in ipairs( jail ) do
+        for i=1, #jail do
             local ent = ents.Create( "prop_physics" )
-            ent:SetModel( v.mdl )
-            ent:SetPos( ply:GetPos() + v.pos )
-            ent:SetAngles( v.ang )
+            ent:SetModel( mdl1 )
+            ent:SetPos( ply:GetPos() + jail[i][1] )
+            ent:SetAngles( jail[i][2] )
             ent:Spawn()
             ent:GetPhysicsObject():EnableMotion( false )
             ent:SetMoveType( MOVETYPE_NONE )
@@ -1343,7 +1174,7 @@ if ( SERVER ) then
 
 
 
-    function ZetaPlayer_ApplySpawnOverridedata(zeta,name,mdl,personal,pfp,voicepack,Zetateam)
+    function ZetaPlayer_ApplySpawnOverridedata(zeta,name,mdl,personal,pfp,voicepack,Zetateam,accuracy,physguncolor,playercolor)
         local BuildChance = personal.build or math.random(60)
         local CombatChance = personal.combat or math.random(10)
         local ToolChance = personal.tool or math.random(60)
@@ -1372,12 +1203,14 @@ if ( SERVER ) then
                 voicepitch = Voicepitch,
                 strictness = Strictness,
             },
-
+            accuratelevel = accuracy,
             pfp = pfp,
             vp = voicepack,
             zetateam = Zetateam,
             model = mdl,
             name = name,
+            physgunclr = physguncolor,
+            playerclr = playercolor
         }
         zeta.SpawnOVERRIDE = overridedata
     end
@@ -1389,288 +1222,7 @@ if ( SERVER ) then
 
 end
 
-_zetaconvardefault = {
-    zetaplayer_debug = 0,
-    zetaplayer_consolelog=0,
-    zetaplayer_allowtoolgunnonworld=1,
-    zetaplayer_allowtoolgunworld=1,
-    zetaplayer_allowphysgunnonworld=1,
-    zetaplayer_allowphysgunworld=0,
-    zetaplayer_allowphysgunplayers=0,
-    zetaplayer_allowphysgunzetas=0,
-    zetaplayer_allowcolortool=1,
-    zetaplayer_allowmaterialtool=1,
-    zetaplayer_allowropetool=1,
-    zetaplayer_allowlighttool=1,
-    zetaplayer_allowmusicboxtool=1,
-    zetaplayer_allowtrailstool=1,
-    zetaplayer_allowignitertool=1,
-    zetaplayer_allowballoontool=1,
-    zetaplayer_randomplayermodelcolor=1,
-    zetaplayer_allowremovertool=0,
-    zetaplayer_allowattacking=1,
-    zetaplayer_allowselfdefense=1,
-    zetaplayer_allowdefendothers=1,
-    zetaplayer_allowspawnmenu=1,
-    zetaplayer_allowentities=0,
-    zetaplayer_allownpcs=0,
-    zetaplayer_allowvehicles=1,
-    zetaplayer_npclimit=1,
-    zetaplayer_allowfollowingfriend=1,
-    zetaplayer_allowlaughing=1,
-    zetaplayer_enablefriend=1,
-    zetaplayer_alternateidlesounds=1,
-    zetaplayer_wanderdistance=1500,
-    zetaplayer_overridemodel='',
-    zetaplayer_spawnweapon='NONE',
-    zetaplayer_naturalspawnweapon='NONE',
-    zetaplayer_panicthreshold=0.3,
-    zetaplayer_allowlargeprops=1,
-    zetaplayer_propspawnunfrozen=0,
-    zetaplayer_mapwidespawning=0,
-    zetaplayer_mapwidespawningzetaamount=10,
-    zetaplayer_voicevolume=1,
-    zetaplayer_removepropsondeath=1,
-    zetaplayer_freezelargeprops=1,
-    zetaplayer_ignorezetas=0,
-    zetaplayer_randomplayermodels=0,
-    zetaplayer_randomdefaultplayermodels=0,
-    zetaplayer_lightlimit=5,
-    zetaplayer_musicboxlimit=1,
-    zetaplayer_balloonlimit=5,
-    zetaplayer_ropelimit=5,
-    zetaplayer_proplimit=50,
-    zetaplayer_sentlimit=10,
-    zetaplayer_usealternatedeathsounds=0,
-    zetaplayer_cleanupcorpse=0,
-    zetaplayer_cleanupcorpseeffect=1,
-    zetaplayer_mapwidespawninguseplayerstart=0,
-    zetaplayer_cleanupcorpsetime=15,
-    zetaplayer_disabled=0,
-    zetaplayer_custommusiconly=0,
-    zetaplayer_musicvolume=1,
-    zetaplayer_allowpainvoice=1,
-    zetaplayer_allowpanicvoice=1,
-    zetaplayer_allowidlevoice=1,
-    zetaplayer_allowdeathvoice=1,
-    zetaplayer_allowar2altfire=1,
-    zetaplayer_allowbackstabbing=1,
-    zetaplayer_allowwitnesssounds=1,
-    zetaplayer_allowfalldamage=1,
-    zetaplayer_allowrealisticfalldamge=0,
-    zetaplayer_allowfaceposertool=1,
-    zetaplayer_allowemittertool=1,
-    zetaplayer_emitterlimit=2,
-    zetaplayer_allowmlgshots=1,
-    zetaplayer_drawcameraflashing=0,
-    zetaplayer_bonemanipulatortool=1,
-    zetaplayer_allowdynamitetool=1,
-    zetaplayer_dynamitelimit=2,
-    zetaplayer_allowcameraaslethalweapon=0,
-    zetaplayer_allowpainttool=1,
-    zetaplayer_allowkillvoice=1,
-    zetaplayer_allowtauntvoice=1,
-    zetaplayer_permamentfriend='',
-    zetaplayer_zetaspawnersaveidentity=1,
-    zetaplayer_allowzetascreenshots=0,
-    zetaplayer_ignoresmallnavareas=0,
-    zetaplayer_allowdisconnecting=0,
-    zetaplayer_voicedsp="normal",
-    zetaplayer_allowvoicepopup=0,
-    zetaplayer_useprofilesystem=0,
-    zetaplayer_globalvoicechat=0,
-    zetaplayer_usecustomavatars=0,
-    zetaplayer_limitdsp=1,
-    zetaplayer_showprofilepicturesintab=0,
-    zetaplayer_dsplimit=7,
-    zetaplayer_zetahealth=100,
-    zetaplayer_naturalspawnrate=2,
-    zetaplayer_permamentfriendalwaysspawn=0,
-    zetaplayer_allowassistsound=1,
-    zetaplayer_dropweapons=0,
-    zetaplayer_showpfpoverhealth=0,
-    zetaplayer_naturalzetahealth=100,
-    zetaplayer_allowstrafing=1,
-    zetaplayer_triggermines=1,
-    zetaplayer_triggermines_hoptime=0.5,
-    zetaplayer_disableunstuck=0,
-    zetaplayer_killontouchnodraworsky=1,
-    zetaplayer_customidlelinesonly=0,
-    zetaplayer_customdeathlinesonly=0,
-    zetaplayer_customkilllinesonly=0,
-    zetaplayer_customtauntlinesonly=0,
-    zetaplayer_combatinaccuracy=0,
-    zetaplayer_damagedivider=1,
-    zetaplayer_explosivecorpsecleanup=0,
-    zetaplayer_norepeatingpfps=0,
-    zetaplayer_usenewvoicechatsystem=0,
-    zetaplayer_allowsprays=0,
-    zetaplayer_alwayshuntfortargets=0,
-    zetaplayer_allowuseonprops=1,
-    zetaplayer_allowlamptool=1,
-    zetaplayer_lamplimit=1,
-    zetaplayer_allowthrustertool=1,
-    zetaplayer_thrusterlimit=5,
-    zetaplayer_forceadd=0,
-    zetaplayer_musicsoundlevel=110,
-    zetaplayer_musicplayonce=0,
-    zetaplayer_musicshuffle=1,
-    zetaplayer_showzetalogonscreen=0,
-    zetaplayer_thrusterunfreeze=0,
-    zetaplayer_differentvoicepitch=0,
-    zetaplayer_voicepitchmin=80,
-    zetaplayer_voicepitchmax=130,
-    zetaplayer_mingebag=0,
-    zetaplayer_mapwidemingebag=0,
-    zetaplayer_mapwidemingebagspawnchance=10,
-    zetaplayer_allowscoldvoice=1,
-    zetaplayer_zetaspawnerrespawntime=1,
-    zetaplayer_playersizedsprays=1,
-    zetaplayer_enabledrowning=1,
-    zetaplayer_bugbait_limit=4,
-    zetaplayer_bugbait_lifetime=10,
-    zetaplayer_bugbait_spawnhp=30,
-    zetaplayer_jpgpropamount=15,
-    zetaplayer_c4debris=0,
-    zetaplayer_c4card=0,
-    zetaplayer_serverjunk=0,
-    zetaplayer_freezeserverjunk=0,
-    zetaplayer_serverjunkcount=45,
-    zetaplayer_customwitnesslinesonly=0,
-    zetaplayer_custompaniclinesonly=0,
-    zetaplayer_customassistlinesonly=0,
-    zetaplayer_customlaughlinesonly=0,
-    zetaplayer_customadminscoldlinesonly=0,
-    zetaplayer_useteamsystem=0,
-    zetaplayer_eachteammemberlimit=3,
-    zetaplayer_playerteam='',
-    zetaplayer_overrideteam='',
-    zetaplayer_randombodygroups=1,
-    zetaplayer_randomskingroups=1,
-    zetaplayer_personalitytype='random',
-    zetaplayer_buildchance=30,
-    zetaplayer_combatchance=30,
-    zetaplayer_toolchance=30,
-    zetaplayer_physgunchance=30,
-    zetaplayer_disrespectchance=30,
-    zetaplayer_watchmediaplayerchance=30,
-    zetaplayer_friendlychance=30,
-    zetaplayer_voicechance=30,
-    zetaplayer_vehiclechance=30,
-    zetaplayer_naturalpersonalitytype='random',
-    zetaplayer_naturalbuildchance=30,
-    zetaplayer_naturalcombatchance=30,
-    zetaplayer_naturaltoolchance=30,
-    zetaplayer_naturalphysgunchance=30,
-    zetaplayer_naturaldisrespectchance=30,
-    zetaplayer_naturalwatchmediaplayerchance=30,
-    zetaplayer_naturalfriendlychance=30,
-    zetaplayer_naturalvoicechance=30,
-    zetaplayer_naturalvehiclechance=30,
-    zetaplayer_friendusecustomcolors=0,
-    zetaplayer_friendplayermodelcolorR=0,
-    zetaplayer_friendplayermodelcolorG=0,
-    zetaplayer_friendplayermodelcolorB=0,
-    zetaplayer_friendusephysguncolor=0,
-    zetaplayer_friendphysguncolorR=0,
-    zetaplayer_friendphysguncolorG=0,
-    zetaplayer_friendphysguncolorB=0,
-    zetaplayer_friendhealth=100,
-    zetaplayer_friendprofilepicture="",
-    zetaplayer_friendcustomidlelinesonly=0,
-    zetaplayer_friendcustomdeathlinesonly=0,
-    zetaplayer_friendcustomkilllinesonly=0,
-    zetaplayer_friendcustomtauntlinesonly=0,
-    zetaplayer_friendcustompaniclinesonly=0,
-    zetaplayer_friendcustomassistlinesonly=0,
-    zetaplayer_friendcustomlaughlinesonly=0,
-    zetaplayer_friendcustomwitnesslinesonly=0,
-    zetaplayer_friendcustomadminscoldlinesonly=0,
-    zetaplayer_friendisadmin=0,
-    zetaplayer_friendoverridemodel='',
-    zetaplayer_friendpersonalitytype='random',
-    zetaplayer_friendbuildchance=30,
-    zetaplayer_friendcombatchance=30,
-    zetaplayer_friendtoolchance=30,
-    zetaplayer_friendphysgunchance=30,
-    zetaplayer_frienddisrespectchance=30,
-    zetaplayer_friendwatchmediaplayerchance=30,
-    zetaplayer_friendfriendlychance=30,
-    zetaplayer_friendvoicechance=30,
-    zetaplayer_friendvehiclechance=30,
-    zetaplayer_friendspawnweapon='NONE',
-    zetaplayer_admindisplaynameRed=0,
-    zetaplayer_admindisplaynameGreen=148,
-    zetaplayer_admindisplaynameBlue=255,
-    zetaplayer_adminoverridemodel='models/player/police.mdl',
-    zetaplayer_spawnasadmin=0,
-    zetaplayer_forcespawnadmins=0,
-    zetaplayer_adminrule_nopropkill=1,
-    zetaplayer_adminrule_rdm=1,
-    zetaplayer_adminrule_griefing=1,
-    zetaplayer_admintreatowner=0,
-    zetaplayer_adminprintecho=1,
-    zetaplayer_adminsctrictnessmin=0,
-    zetaplayer_adminsctrictnessmax=30,
-    zetaplayer_adminshouldsticktogether=0,
-    zetaplayer_admincount=1,
-    zetaplayer_allowpistol=1,
-    zetaplayer_allowar2=1,
-    zetaplayer_allowshotgun=1,
-    zetaplayer_allowsmg=1,
-    zetaplayer_allowrpg=1,
-    zetaplayer_allowcrowbar=1,
-    zetaplayer_allowstunstick=1,
-    zetaplayer_allowrevolver=1,
-    zetaplayer_allowtoolgun=1,
-    zetaplayer_allowphysgun=1,
-    zetaplayer_allowknife=1,
-    zetaplayer_allowfist=1,
-    zetaplayer_allowcrossbow=1,
-    zetaplayer_allowm4a1=1,
-    zetaplayer_allowawp=1,
-    zetaplayer_allowcamera=1,
-    zetaplayer_allowwrench=1,
-    zetaplayer_allowscattergun=1,
-    zetaplayer_allowtf2pistol=1,
-    zetaplayer_allowak47=1,
-    zetaplayer_allowmachinegun=1,
-    zetaplayer_allowdeagle=1,
-    zetaplayer_allowtf2sniper=1,
-    zetaplayer_allowtf2shotgun=1,
-    zetaplayer_allowgrenades=1,
-    zetaplayer_allowmp5=1,
-    zetaplayer_allowjpg=1,
-    zetaplayer_displayzetanames=1,
-    zetaplayer_showfriends=1,
-    zetaplayer_displayarmor=0,
-    zetaplayer_frienddisplaydistance=1400,
-    zetaplayer_displaynamerainbow=0,
-    zetaplayer_drawvoiceicon=1,
-    zetaplayer_drawfriendhalo=1,
-    zetaplayer_drawfriendhalothroughworld=0,
-    zetaplayer_drawflashlight=1,
-    zetaplayer_showconnectmessages=0,
-    zetaplayer_zetascreenshotfov=90,
-    zetaplayer_zetascreenshotfiletype='jpg',
-    zetaplayer_zetascreenshotchance=10,
-    zetaplayer_voicepopupdrawdistance=0,
-    zetaplayer_voicepopup_x=1.17,
-    zetaplayer_voicepopup_y=1.15,
-    zetaplayer_displaynameRed=164,
-    zetaplayer_displaynameGreen=182,
-    zetaplayer_displaynameBlue=0,
-    zetaplayer_drawteamhalo=1,
-    zetaplayer_drawteamname=1,
-    zetaplayer_drawteamhalothroughworld=0,
-    zetaplayer_teamnamedrawdistance=1400,
-    zetaplayer_teamcolorRed=0,
-    zetaplayer_teamcolorGreen=180,
-    zetaplayer_teamcolorBlue=180,
-    zetaplayer_friendnamecolorR=0,
-    zetaplayer_friendnamecolorG=200,
-    zetaplayer_friendnamecolorB=0,
-}
+_zetaconvardefault = {}
 
 -- Shared stuff
 
@@ -1682,8 +1234,13 @@ function zeta_NonPlayerNPC(ent) -- Returns if the entity is not any character
     end
 end
 
-if IsMounted("tf") then
-    game.AddParticles("particles/flamethrower.pcf")
+local TeamFortressPCF = {
+    "bigboom.pcf",
+    "flamethrower.pcf"
+}
+
+for k,pcf in pairs(TeamFortressPCF) do
+    game.AddParticles("particles/"..pcf)
 end
 
 zetaWeaponConfigTable = {
@@ -1692,150 +1249,470 @@ zetaWeaponConfigTable = {
     ['TF2'] = {},
     ["HL1"] = {},
     ['DOD'] = {},
-    ['L4D'] = {}
+    ['L4D'] = {},
+    ["CUSTOM"] = {},
+    ["ADDON"] = {},
+    ["MP1"] = {}
 }
 
-local function RegisterZetaWeapon(category, name, prettyName,defaultvar)
+local function confighasvalue( cat, name, prettyname )
+
+    for k, weptbl in pairs( zetaWeaponConfigTable[ cat ] ) do
+        if weptbl[ 2 ] == name then weptbl[ 1 ] = prettyname return true end
+    end
+
+    return false
+end
+
+function RegisterZetaWeapon( category, name, prettyName, defaultvar )
     if prettyName == nil then prettyName = name end
     local cvarName = 'zetaplayer_allow'..string.lower(name)
     CreateConVar(cvarName,defaultvar,FCVAR_ARCHIVE,'Allows the Zeta to equip the '..prettyName,0,1)
-    table.insert(zetaWeaponConfigTable[category], {prettyName, name, cvarName})
 
-    _zetaconvardefault[cvarName] = defaultvar
+    if !confighasvalue( category, name, prettyName ) then
+        table.insert(zetaWeaponConfigTable[category], {prettyName, name, cvarName})
+    end
+
+    _zetaconvardefault[cvarName] = tostring( defaultvar )
 
 end
 
+if SERVER then
+    net.Receive( "zetaweaponcreator_updateweapons", function( len, ply ) 
 
+        zetaWeaponConfigTable = {
+            ['GMOD'] = {},
+            ['CSS'] = {},
+            ['TF2'] = {},
+            ["HL1"] = {},
+            ['DOD'] = {},
+            ['L4D'] = {},
+            ["CUSTOM"] = {},
+            ["ADDON"] = {},
+            ["MP1"] = {}
+        }
+    
+        include("zeta/weapon_tables.lua")
 
-
-RegisterZetaWeapon('L4D', 'L4D_PISTOL_P220','[L4D2] SIG Sauer P220',1)
-RegisterZetaWeapon('L4D', 'L4D_PISTOL_GLOCK26','[L4D2] Glock 26',1)
-RegisterZetaWeapon('L4D', 'L4D_PISTOL_MAGNUM','[L4D2] Magnum',1)
-RegisterZetaWeapon('L4D', 'L4D_SMG','[L4D2] Submachine Gun',1)
-RegisterZetaWeapon('L4D', 'L4D_SMG_SILENCED','[L4D2] Silenced Submachine Gun',1)
-RegisterZetaWeapon('L4D', 'L4D_SHOTGUN_PUMP','[L4D2] Pump Shotgun',1)
-RegisterZetaWeapon('L4D', 'L4D_SHOTGUN_CHROME','[L4D2] Chrome Shotgun',1)
-RegisterZetaWeapon('L4D', 'L4D_SHOTGUN_AUTOSHOT','[L4D2] Tactical Shotgun',1)
-RegisterZetaWeapon('L4D', 'L4D_SHOTGUN_SPAS12','[L4D2] Combat Shotgun',1)
-RegisterZetaWeapon('L4D', 'L4D_RIFLE_M16','[L4D2] M-16 Assault Rifle',1)
-RegisterZetaWeapon('L4D', 'L4D_RIFLE_AK47','[L4D2] AK47',1)
-RegisterZetaWeapon('L4D', 'L4D_RIFLE_SCARL','[L4D2] Combat Rifle',1)
-RegisterZetaWeapon('L4D', 'L4D_RIFLE_RUGER14','[L4D2] Hunting Rifle',1)
-RegisterZetaWeapon('L4D', 'L4D_RIFLE_MILITARYS','[L4D2] Military Rifle',1)
-RegisterZetaWeapon('L4D', 'L4D_PISTOL_M1911','[L4D1] M1911 Pistol',1)
-
--- Left 4 Dead 2 Melee Weapons
-RegisterZetaWeapon('L4D', 'L4D_MELEE_FIREAXE','[L4D2] Fireaxe',1)
-RegisterZetaWeapon('L4D', 'L4D_MELEE_GUITAR','[L4D2] Guitar',1)
-RegisterZetaWeapon('L4D', 'L4D_MELEE_GOLFCLUB','[L4D2] Golf Club',1)
-RegisterZetaWeapon('L4D', 'L4D_MELEE_TONFA','[L4D2] Nightstick',1)
-
--- Left 4 Dead 2 Special Weapons
-RegisterZetaWeapon('L4D', 'L4D_SPECIAL_GL_DELAYED','[L4D2] Grenade Launcher (Non-Impact)',1)
-RegisterZetaWeapon('L4D', 'L4D_SPECIAL_GL_IMPACT','[L4D2] Grenade Launcher (Impact)',1)
-RegisterZetaWeapon('L4D', 'L4D_SPECIAL_M60','[L4D2] M60',1)
-
-
--- Axis
-RegisterZetaWeapon('DOD', 'DODS_AXIS_SPADE','German Entrenching Spade Shovel',1)
-RegisterZetaWeapon('DOD', 'DODS_AXIS_P38','Walther P38',1)
-RegisterZetaWeapon('DOD', 'DODS_AXIS_C96','Mauser C96',1)
-RegisterZetaWeapon('DOD', 'DODS_AXIS_MP40','Maschinenpistole 40',1)
-RegisterZetaWeapon('DOD', 'DODS_AXIS_KAR98k','Karabiner 98k',1)
-RegisterZetaWeapon('DOD', 'DODS_AXIS_KAR98KSNIPER','Karabiner 98k Sniper',1)
-RegisterZetaWeapon('DOD', 'DODS_AXIS_MG42','Maschinengewehr 42',1)
-RegisterZetaWeapon('DOD', 'DODS_AXIS_PANZERSCHRECK','Panzerschreck 54',1)
-RegisterZetaWeapon('DOD', 'DODS_AXIS_MP44','Sturmgewehr 44',1)
-
- 
--- Allies
-RegisterZetaWeapon('DOD', 'DODS_US_AMERIKNIFE','M1 Trench Knife',1)
-RegisterZetaWeapon('DOD', 'DODS_US_COLT45','Colt .45',1)
-RegisterZetaWeapon('DOD', 'DODS_US_THOMPSON','M1 Thompson',1)
-RegisterZetaWeapon('DOD', 'DODS_US_GARAND','M1 Garand',1)
-RegisterZetaWeapon('DOD', 'DODS_US_M1CARBINE','M1 Carbine',1)
-RegisterZetaWeapon('DOD', 'DODS_US_BAR','M1918 Browning Auto Rifle',1)
-RegisterZetaWeapon('DOD', 'DODS_US_SPRINGFIELD','Springfield',1)
-RegisterZetaWeapon('DOD', 'DODS_US_30CAL','M1919 Browning Machine Gun',1)
-RegisterZetaWeapon('DOD', 'DODS_US_BAZOOKA','M1 Bazooka',1)
-
-
-
-RegisterZetaWeapon('CSS', 'UMP45','Ump45',1)
-RegisterZetaWeapon('CSS', 'FAMAS','Famas',1)
-RegisterZetaWeapon('CSS', 'AUG','AUG',1)
-RegisterZetaWeapon('CSS', 'SG552','SG552',1)
-RegisterZetaWeapon('CSS', 'P90','P90',1)
-RegisterZetaWeapon('CSS', 'MAC10','Mac10',1)
-RegisterZetaWeapon('CSS', 'SCOUT', 'Steyr Scout',1)
-RegisterZetaWeapon('CSS', 'XM1014','XM1014',1)
-RegisterZetaWeapon('CSS', 'FIVESEVEN',"Five-Seven",1)
-RegisterZetaWeapon('CSS', 'USPSILENCED',"Silenced Usp",1)
-RegisterZetaWeapon('CSS', 'GLOCK_AUTO',"Glock 18 Auto",1)
-RegisterZetaWeapon('CSS', 'GLOCK_SEMI',"Glock 18 Semi-Auto",1)
-RegisterZetaWeapon('CSS', 'UMP45','UMP-45',1)
-RegisterZetaWeapon('CSS', 'FAMAS','Famas',1)
-RegisterZetaWeapon('CSS', 'AUG','AUG',1)
-RegisterZetaWeapon('CSS', 'SG552','SG552',1)
-RegisterZetaWeapon('CSS', 'P90','P90',1)
-RegisterZetaWeapon('CSS', 'MAC10','Mac-10',1)
-RegisterZetaWeapon('CSS', 'SCOUT', 'Steyr Scout',1)
-RegisterZetaWeapon('CSS', 'XM1014','XM1014',1)
-RegisterZetaWeapon('CSS', 'FIVESEVEN',"Five-Seven",1)
-RegisterZetaWeapon('CSS', 'USPSILENCED',"USP-45",1)
-RegisterZetaWeapon('CSS', 'GLOCK_AUTO',"Glock 18 (Auto)",1)
-RegisterZetaWeapon('CSS', 'GLOCK_SEMI',"Glock 18 (Semi-Auto)",1)
-RegisterZetaWeapon('CSS', 'M3',"M3 Super 90",1)
-RegisterZetaWeapon('CSS', 'GALIL',"IMI Galil",1)
-RegisterZetaWeapon('CSS', 'TMP',"TMP",1)
-RegisterZetaWeapon('CSS', 'DUALELITES',"Dual Berettas",1)
-
-
-RegisterZetaWeapon('GMOD', 'HACKSMONITORS','Anti Hacks Monitors',1)
-RegisterZetaWeapon('GMOD', 'IMPACTGRENADE','Punch Activated Impact Grenade',1)
-RegisterZetaWeapon('GMOD', 'SHOVEL','Shovel',1)
-RegisterZetaWeapon('GMOD', 'VOLVER','Volver',0)
-RegisterZetaWeapon('GMOD', 'BUGBAIT','Bugbait',1)
-RegisterZetaWeapon('GMOD', 'PAN','Frying Pan',1)
-RegisterZetaWeapon('GMOD', 'MEATHOOK','Meat Hook',1)
-RegisterZetaWeapon('GMOD', 'C4','C4 Plastic Explosive',0)
-RegisterZetaWeapon('GMOD', 'LARGEGRENADE','Comically Large Grenade',1)
-RegisterZetaWeapon('GMOD', 'KATANA','Katana',1)
-RegisterZetaWeapon('GMOD', 'ALYXGUN','Alyx Gun',1)
-RegisterZetaWeapon('GMOD', 'ANNABELLE','Annabelle',1)
-RegisterZetaWeapon('GMOD', 'WOODENCHAIR','Wooden Chair',1)
-RegisterZetaWeapon('GMOD', 'THEKLEINER','Kleiner',1)
-RegisterZetaWeapon('GMOD', 'LARGESIGN','Large Sign Post',1)
-RegisterZetaWeapon('GMOD', 'CARDOOR','Car Door',1)
-RegisterZetaWeapon('GMOD', 'ZOMBIECLAWS','Zombie Claws',1)
-
-if istable(rb655_gForcePowers) then
-    RegisterZetaWeapon('GMOD', 'LIGHTSABER', 'Lightsaber', 1)
+        _ZetaRegisterDefaultWeapons()
+    
+        ply:ConCommand( "spawnmenu_reload" )
+    end )
 end
 
+include('zeta/weapon_tables.lua')
+
+function _ZetaRegisterDefaultWeapons()
+
+    RegisterZetaWeapon('L4D', 'L4D_PISTOL_P220','[L4D2] SIG Sauer P220',1)
+    RegisterZetaWeapon('L4D', 'L4D_PISTOL_GLOCK26','[L4D2] Glock 26',1)
+    RegisterZetaWeapon('L4D', 'L4D_PISTOL_MAGNUM','[L4D2] Magnum',1)
+    RegisterZetaWeapon('L4D', 'L4D_SMG','[L4D2] Submachine Gun',1)
+    RegisterZetaWeapon('L4D', 'L4D_SMG_SILENCED','[L4D2] Silenced Submachine Gun',1)
+    RegisterZetaWeapon('L4D', 'L4D_SHOTGUN_PUMP','[L4D2] Pump Shotgun',1)
+    RegisterZetaWeapon('L4D', 'L4D_SHOTGUN_CHROME','[L4D2] Chrome Shotgun',1)
+    RegisterZetaWeapon('L4D', 'L4D_SHOTGUN_AUTOSHOT','[L4D2] Tactical Shotgun',1)
+    RegisterZetaWeapon('L4D', 'L4D_SHOTGUN_SPAS12','[L4D2] Combat Shotgun',1)
+    RegisterZetaWeapon('L4D', 'L4D_RIFLE_M16','[L4D2] M-16 Assault Rifle',1)
+    RegisterZetaWeapon('L4D', 'L4D_RIFLE_AK47','[L4D2] AK47',1)
+    RegisterZetaWeapon('L4D', 'L4D_RIFLE_SCARL','[L4D2] Combat Rifle',1)
+    RegisterZetaWeapon('L4D', 'L4D_RIFLE_RUGER14','[L4D2] Hunting Rifle',1)
+    RegisterZetaWeapon('L4D', 'L4D_RIFLE_MILITARYS','[L4D2] Military Rifle',1)
+    RegisterZetaWeapon('L4D', 'L4D_PISTOL_M1911','[L4D1] M1911 Pistol',1)
+    RegisterZetaWeapon('L4D', 'L4D_SPECIAL_CHAINSAW','[L4D2] Chainsaw', 1)
+
+    -- Left 4 Dead 2 Melee Weapons
+    RegisterZetaWeapon('L4D', 'L4D_MELEE_FIREAXE','[L4D2] Fireaxe',1)
+    RegisterZetaWeapon('L4D', 'L4D_MELEE_GUITAR','[L4D2] Guitar',1)
+    RegisterZetaWeapon('L4D', 'L4D_MELEE_GOLFCLUB','[L4D2] Golf Club',1)
+    RegisterZetaWeapon('L4D', 'L4D_MELEE_TONFA','[L4D2] Nightstick',1)
+
+    -- Left 4 Dead 2 Special Weapons
+    RegisterZetaWeapon('L4D', 'L4D_SPECIAL_GL_DELAYED','[L4D2] Grenade Launcher (Non-Impact)',1)
+    RegisterZetaWeapon('L4D', 'L4D_SPECIAL_GL_IMPACT','[L4D2] Grenade Launcher (Impact)',1)
+    RegisterZetaWeapon('L4D', 'L4D_SPECIAL_M60','[L4D2] M60',1)
+
+
+    -- Axis
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_SPADE','German Entrenching Spade Shovel',1)
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_P38','Walther P38',1)
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_C96','Mauser C96',1)
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_MP40','Maschinenpistole 40',1)
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_KAR98k','Karabiner 98k',1)
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_KAR98KSNIPER','Karabiner 98k Sniper',1)
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_MG42','Maschinengewehr 42',1)
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_PANZERSCHRECK','Panzerschreck 54',1)
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_MP44','Sturmgewehr 44',1)
+
+    
+    -- Allies
+    RegisterZetaWeapon('DOD', 'DODS_US_AMERIKNIFE','M1 Trench Knife',1)
+    RegisterZetaWeapon('DOD', 'DODS_US_COLT45','Colt .45',1)
+    RegisterZetaWeapon('DOD', 'DODS_US_THOMPSON','M1 Thompson',1)
+    RegisterZetaWeapon('DOD', 'DODS_US_GARAND','M1 Garand',1)
+    RegisterZetaWeapon('DOD', 'DODS_US_M1CARBINE','M1 Carbine',1)
+    RegisterZetaWeapon('DOD', 'DODS_US_BAR','M1918 Browning Auto Rifle',1)
+    RegisterZetaWeapon('DOD', 'DODS_US_SPRINGFIELD','Springfield',1)
+    RegisterZetaWeapon('DOD', 'DODS_US_30CAL','M1919 Browning Machine Gun',1)
+    RegisterZetaWeapon('DOD', 'DODS_US_BAZOOKA','M1 Bazooka',1)
 
 
 
-RegisterZetaWeapon('TF2', 'BAT','Bat',1)
-RegisterZetaWeapon('TF2', 'SNIPERSMG','TF2 SMG',1)
-RegisterZetaWeapon('TF2', 'FORCEOFNATURE','Force of Nature',1)
-RegisterZetaWeapon('TF2', 'GRENADELAUNCHER','Grenade Launcher',1)
-RegisterZetaWeapon('TF2', 'FLAMETHROWER','Flamethrower',1)
-RegisterZetaWeapon('HL1', 'HL1SMG','HL1 MP5',1)
-RegisterZetaWeapon('HL1', 'HL1GLOCK','HL1 Glock',1)
-RegisterZetaWeapon('HL1', 'HL1SPAS','HL1 Spas',1)
-RegisterZetaWeapon('HL1', 'HL1357','HL1 357',1)
+    RegisterZetaWeapon('CSS', 'GLOCK_AUTO',"Glock 18 Auto",1)
+    RegisterZetaWeapon('CSS', 'GLOCK_SEMI',"Glock 18 Semi-Auto",1)
+    RegisterZetaWeapon('CSS', 'UMP45','UMP-45',1)
+    RegisterZetaWeapon('CSS', 'FAMAS','Famas',1)
+    RegisterZetaWeapon('CSS', 'AUG','AUG',1)
+    RegisterZetaWeapon('CSS', 'SG552','SG552',1)
+    RegisterZetaWeapon('CSS', 'P90','P90',1)
+    RegisterZetaWeapon('CSS', 'MAC10','Mac-10',1)
+    RegisterZetaWeapon('CSS', 'SCOUT', 'Steyr Scout',1)
+    RegisterZetaWeapon('CSS', 'XM1014','XM1014',1)
+    RegisterZetaWeapon('CSS', 'FIVESEVEN',"Five-Seven",1)
+    RegisterZetaWeapon('CSS', 'USPSILENCED',"USP-45",1)
+    RegisterZetaWeapon('CSS', 'M3',"M3 Super 90",1)
+    RegisterZetaWeapon('CSS', 'GALIL',"IMI Galil",1)
+    RegisterZetaWeapon('CSS', 'TMP',"TMP",1)
+    RegisterZetaWeapon('CSS', 'DUALELITES',"Dual Berettas",1)
+    RegisterZetaWeapon("CSS", "FLASHGRENADE", "Flash Grenade", 1)
+    RegisterZetaWeapon("CSS", "SMOKEGRENADE", "Smoke Grenade", 1)
+
+
+    RegisterZetaWeapon('GMOD', 'HACKSMONITORS','Anti Hacks Monitors',1)
+    RegisterZetaWeapon('GMOD', 'IMPACTGRENADE','Punch Activated Impact Grenade',1)
+    RegisterZetaWeapon('GMOD', 'SHOVEL','Shovel',1)
+    RegisterZetaWeapon('GMOD', 'VOLVER','Volver',0)
+    RegisterZetaWeapon('GMOD', 'BUGBAIT','Bugbait',1)
+    RegisterZetaWeapon('GMOD', 'PAN','Frying Pan',1)
+    RegisterZetaWeapon('GMOD', 'MEATHOOK','Meat Hook',1)
+    RegisterZetaWeapon('GMOD', 'C4','C4 Plastic Explosive',0)
+    RegisterZetaWeapon('GMOD', 'LARGEGRENADE','Comically Large Grenade',1)
+    RegisterZetaWeapon('GMOD', 'KATANA','Katana',1)
+    RegisterZetaWeapon('GMOD', 'ALYXGUN','Alyx Gun',1)
+    RegisterZetaWeapon('GMOD', 'ANNABELLE','Annabelle',1)
+    RegisterZetaWeapon('GMOD', 'WOODENCHAIR','Wooden Chair',1)
+    RegisterZetaWeapon('GMOD', 'THEKLEINER','Kleiner',1)
+    RegisterZetaWeapon('GMOD', 'LARGESIGN','Large Sign Post',1)
+    RegisterZetaWeapon('GMOD', 'CARDOOR','Car Door',1)
+    RegisterZetaWeapon('GMOD', 'ZOMBIECLAWS','Zombie Claws',1)
+
+
+    if istable(rb655_gForcePowers) then
+        RegisterZetaWeapon('GMOD', 'LIGHTSABER', 'Lightsaber', 1)
+    end
+
+    if istable(mp1_lib) then
+        RegisterZetaWeapon("MP1", "MP1_LEADPIPE", "[MP1] Lead Pipe", 1)
+        RegisterZetaWeapon("MP1", "MP1_BASEBALLBAT", "[MP1] Baseball Bat", 1)
+        RegisterZetaWeapon("MP1", "MP1_BERETTA", "[MP1] Beretta", 1)
+        RegisterZetaWeapon("MP1", "MP1_DUALBERETTAS", "[MP1] Dual Berettas", 1)
+        RegisterZetaWeapon("MP1", "MP1_DESERTEAGLE", "[MP1] Desert Eagle", 1)
+        RegisterZetaWeapon("MP1", "MP1_INGRAM", "[MP1] Ingram Mac-10", 1)
+        RegisterZetaWeapon("MP1", "MP1_DUALINGRAMS", "[MP1] Dual Ingrams", 1)
+        RegisterZetaWeapon("MP1", "MP1_MP5", "[MP1] MP5", 1)
+        RegisterZetaWeapon("MP1", "MP1_SAWEDOFFSHOTGUN", "[MP1] Sawed-Off Shotgun", 1)
+        RegisterZetaWeapon("MP1", "MP1_PUMPSHOTGUN", "[MP1] Pump-Action Shotgun", 1)
+        RegisterZetaWeapon("MP1", "MP1_COLTCOMMANDO", "[MP1] Colt Commando", 1)
+        RegisterZetaWeapon("MP1", "MP1_JACKHAMMER", "[MP1] Jackhammer", 1)
+        RegisterZetaWeapon("MP1", "MP1_SNIPERRIFLE", "[MP1] Sniper Rifle", 1)
+        RegisterZetaWeapon("MP1", "MP1_M79", "[MP1] M79", 1)
+        RegisterZetaWeapon("MP1", "MP1_COCKTAIL", "[MP1] Molotov Cocktail", 1)
+        RegisterZetaWeapon("MP1", "MP1_GRENADE", "[MP1] Grenade", 1)
+    end
+
+    if file.Exists("weapons/weapon_nyangun.lua", "LUA") then
+        RegisterZetaWeapon('GMOD', 'NYANGUN', 'Nyan Gun', 1)
+    end
+
+
+
+
+    RegisterZetaWeapon('TF2', 'BAT','Bat',1)
+    RegisterZetaWeapon('TF2', 'SNIPERSMG','TF2 SMG',1)
+    RegisterZetaWeapon('TF2', 'FORCEOFNATURE','Force of Nature',1)
+    RegisterZetaWeapon('TF2', 'GRENADELAUNCHER','Grenade Launcher',1)
+    RegisterZetaWeapon('TF2', 'FLAMETHROWER','Flamethrower',1)
+    RegisterZetaWeapon("TF2", "TF2_MINIGUN", "Minigun", 1)
+
+    RegisterZetaWeapon('HL1', 'HL1SMG','HL1 MP5',1)
+    RegisterZetaWeapon('HL1', 'HL1GLOCK','HL1 Glock',1)
+    RegisterZetaWeapon('HL1', 'HL1SPAS','HL1 Spas',1)
+    RegisterZetaWeapon('HL1', 'HL1357','HL1 357',1)
+
+
+end
+
+_ZetaRegisterDefaultWeapons()
 
 -- When adding convars, We now should use this for it to add to the preset system
 local function AddZetaConvar(cvarname,save,value,helptext,min,max)
     CreateConVar(cvarname,value,save and FCVAR_ARCHIVE or !save and FCVAR_NONE,helptext,min,max)
-    _zetaconvardefault[cvarname] = value
+    _zetaconvardefault[cvarname] = tostring( value )
 end
+
+
+
+
+
+
+
+AddZetaConvar('zetaplayer_debug',false,0,"Enables the Zeta's debug text",0,1)
+AddZetaConvar('zetaplayer_consolelog',true,0,"Enables the Console logging of Zetas. Mimics ent spawning logs you see with players",0,1)
+AddZetaConvar('zetaplayer_allowtoolgunnonworld',true,1,'Allows the Zeta to toolgun non world ents',0,1)
+AddZetaConvar('zetaplayer_allowtoolgunworld',true,1,'Allows the Zeta to toolgun world ents',0,1)
+AddZetaConvar('zetaplayer_allowphysgunnonworld',true,1,'Allows the Zeta to physgun non world ents',0,1)
+AddZetaConvar('zetaplayer_allowphysgunworld',true,0,'Allows the Zeta to physgun world ents',0,1)
+AddZetaConvar('zetaplayer_allowphysgunplayers',true,0,'Allows the Zeta to physgun players',0,1)
+AddZetaConvar('zetaplayer_allowphysgunzetas',true,0,'Allows the Zeta to physgun other Zetas',0,1)
+AddZetaConvar('zetaplayer_allowcolortool',true,1,'Allows the Zeta to use the Color Tool',0,1)
+AddZetaConvar('zetaplayer_allowmaterialtool',true,1,'Allows the Zeta to use the Material Tool',0,1)
+AddZetaConvar('zetaplayer_allowropetool',true,1,'Allows the Zeta to use the Rope Tool',0,1)
+AddZetaConvar('zetaplayer_allowlighttool',true,1,'Allows the Zeta to use the Light Tool',0,1)
+AddZetaConvar('zetaplayer_allowmusicboxtool',true,1,'Allows the Zeta to use the Music Box Tool',0,1)
+AddZetaConvar('zetaplayer_allowtrailstool',true,1,'Allows the Zeta to use the Trails Tool',0,1)
+AddZetaConvar('zetaplayer_allowignitertool',true,1,'Allows the Zeta to use the Igniter Tool',0,1)
+AddZetaConvar('zetaplayer_allowballoontool',true,1,'Allows the Zeta to use the Balloon Tool',0,1)
+AddZetaConvar('zetaplayer_randomplayermodelcolor',true,1,'If Zeta models should have a random color applied',0,1)
+AddZetaConvar('zetaplayer_allowremovertool',true,0,'Allows the Zeta to use the Remover Tool',0,1)
+AddZetaConvar('zetaplayer_allowattacking',true,1,'Allows the Zeta to attack people',0,1)
+AddZetaConvar('zetaplayer_allowselfdefense',true,1,'Allows the Zeta to defend itself if it has a lethal weapon',0,1)
+AddZetaConvar('zetaplayer_allowdefendothers',true,1,'Allows the Zeta to defend other players or zetas if they are getting attacked',0,1)
+AddZetaConvar('zetaplayer_allowentities',true,0,'Allows the Zeta to spawn Entities',0,1)
+AddZetaConvar('zetaplayer_allownpcs',true,0,'Allows the Zeta to spawn NPCS',0,1)
+AddZetaConvar('zetaplayer_allowvehicles',true,1,'Allows the Zeta to use Vehicles',0,1)
+AddZetaConvar('zetaplayer_npclimit',true,1,'How much npcs a Zeta is allowed to spawn',0,100)
+AddZetaConvar('zetaplayer_allowfollowingfriend',true,1,'If Zetas are allowed to follow their friend',0,1)
+AddZetaConvar('zetaplayer_allowlaughing',true,1,'If Zetas are allowed to laugh at dead people',0,1)
+AddZetaConvar('zetaplayer_enablefriend',true,1,'Enable the Friend System',0,1)
+AddZetaConvar('zetaplayer_alternateidlesounds',true,1,'Toggle Alternate Idle sounds',0,1)
+AddZetaConvar('zetaplayer_wanderdistance',true,1500,'The max distance a Zeta can wander to',0,15000)
+AddZetaConvar('zetaplayer_overridemodel',true,'','Override the spawning model of a Zeta')
+AddZetaConvar('zetaplayer_spawnweapon',true,'NONE',"Change the Zeta's spawning weapon")
+AddZetaConvar('zetaplayer_naturalspawnweapon',true,'NONE',"Change the natural Zeta's spawning weapon")
+AddZetaConvar('zetaplayer_panicthreshold',true,0.3,"Health Threshold where if the a Zeta's health is below it, it may panic",0,1)
+AddZetaConvar('zetaplayer_allowlargeprops',true,1,'If Zetas are allowed to spawn large props',0,1)
+AddZetaConvar('zetaplayer_propspawnunfrozen',true,0,'If Props should spawn unfrozen. This will cause lag!',0,1)
+AddZetaConvar('zetaplayer_mapwidespawning',true,0,'If Zetas should naturally spawn map wide. This will automatically create Zetas',0,1)
+AddZetaConvar('zetaplayer_mapwidespawningzetaamount',true,10,'How many Zetas should spawn when using map wide spawning',1,300)
+AddZetaConvar('zetaplayer_voicevolume',true,1,'The Volume of Zeta Voices',0.1,10.0)
+AddZetaConvar('zetaplayer_removepropsondeath',true,1,"If a Zeta's props should be removed upon removal. You probably shouldn't touch this unless you want their props to be saved",0,1)
+AddZetaConvar('zetaplayer_freezelargeprops',true,1,'If a large prop spawned by a Zeta should be frozen. To prevent any physics crash from large props',0,1)
+AddZetaConvar('zetaplayer_ignorezetas',false,0,'If the Zetas should ignore each other',0,1)
+AddZetaConvar('zetaplayer_randomplayermodels',true,0,'Allows the Zetas to have random playermodels',0,1)
+AddZetaConvar('zetaplayer_randomdefaultplayermodels',true,0,'If the random playermodels should only be from the base game',0,1)
+AddZetaConvar('zetaplayer_lightlimit',true,5,'How much lights a Zeta is allowed to spawn',1,30)
+AddZetaConvar('zetaplayer_musicboxlimit',true,1,'How much music boxes a Zeta is allowed to spawn',1,30)
+AddZetaConvar('zetaplayer_balloonlimit',true,5,'How much balloons a Zeta is allowed to spawn',1,100)
+AddZetaConvar('zetaplayer_ropelimit',true,5,'How much ropes a Zeta is allowed to place',1,100)
+AddZetaConvar('zetaplayer_proplimit',true,50,'How much props a Zeta is allowed to spawn',1,5000)
+AddZetaConvar('zetaplayer_sentlimit',true,10,'How much SENTS a Zeta is allowed to spawn',1,200)
+AddZetaConvar('zetaplayer_usealternatedeathsounds',true,0,'Play alternate deaths sounds apart from the kleiner death sound',0,1)
+AddZetaConvar('zetaplayer_cleanupcorpse',true,0,'If dead Zetas should be cleaned',0,1)
+AddZetaConvar('zetaplayer_cleanupcorpseeffect',true,1,'If Corpses should play a effect before being removed',0,1)
+AddZetaConvar('zetaplayer_mapwidespawninguseplayerstart',true,0,'If Natural Zetas should spawn at Player Spawnpoints',0,1)
+AddZetaConvar('zetaplayer_cleanupcorpsetime',true,15,'The time before corpses should be cleaned',1,190)
+AddZetaConvar('zetaplayer_disabled',false,0,'Disables the Zeta from thinking',0,1)
+AddZetaConvar('zetaplayer_custommusiconly',true,0,'If Custom Music should only be played by Zeta Music Boxes',0,1)
+AddZetaConvar('zetaplayer_musicvolume',true,1,'The volume of music played by the Music Box',0,10)
+AddZetaConvar('zetaplayer_allowpanicvoice',true,1,'If Zetas should make panic sounds',0,1)
+AddZetaConvar('zetaplayer_allowidlevoice',true,1,'If Zetas should make idle sounds',0,1)
+AddZetaConvar('zetaplayer_allowdeathvoice',true,1,'If Zetas should make death sounds',0,1)
+AddZetaConvar('zetaplayer_allowar2altfire',true,1,'If Zetas are allowed to use the AR2 alt fire',0,1)
+AddZetaConvar('zetaplayer_allowbackstabbing',true,1,'If Zetas are allowed to have increased attack damage when backstabbing with a knife',0,1)
+AddZetaConvar('zetaplayer_allowwitnesssounds',true,1,'If Zetas are allowed to make witness sounds',0,1)
+AddZetaConvar('zetaplayer_allowfalldamage',true,1,'If Zetas should take fall damage',0,1)
+AddZetaConvar('zetaplayer_allowrealisticfalldamge',true,0,'If Zetas should take realistic fall damage. Note, Fall damage must be on for this to apply',0,1)
+AddZetaConvar('zetaplayer_allowfaceposertool',true,1,'If Zetas are allowed to use the Faceposer tool',0,1)
+AddZetaConvar('zetaplayer_allowemittertool',true,1,'If Zetas are allowed to use the Emitter tool',0,1)
+AddZetaConvar('zetaplayer_emitterlimit',true,2,'How much emitters a Zeta is allowed to spawn',1,100)
+AddZetaConvar('zetaplayer_allowmlgshots',true,1,'If Zetas are allowed to have increased attack damage randomly with the AWP',0,1)
+AddZetaConvar('zetaplayer_drawcameraflashing',true,0,'If Zeta Cameras are allowed to emit a flash',0,1)
+AddZetaConvar('zetaplayer_bonemanipulatortool',true,1,'If Zetas are allowed to use the Bone Manipulator Tool',0,1)
+AddZetaConvar('zetaplayer_allowdynamitetool',true,1,'If Zetas are allowed to use the Dynamite tool',0,1)
+AddZetaConvar('zetaplayer_dynamitelimit',true,2,'How much dynamite a Zeta is allowed to spawn',1,100)
+AddZetaConvar('zetaplayer_allowcameraaslethalweapon',true,0,'If Zetas are allowed to equip the camera when trying to defend themselves',0,1)
+AddZetaConvar('zetaplayer_allowpainttool',true,1,'If Zetas are allowed to use the Paint Tool',0,1)
+AddZetaConvar('zetaplayer_allowkillvoice',true,1,'If Zetas can speak a line when killing someone',0,1)
+AddZetaConvar('zetaplayer_allowtauntvoice',true,1,'If Zetas can taunt before attacking someone or defend themselves',0,1)
+AddZetaConvar('zetaplayer_zetaspawnersaveidentity',true,1,'If Zeta Spawners should save identities',0,1)
+AddZetaConvar('zetaplayer_allowzetascreenshots',true,0,'If Zetas are allowed to request and take screenshots',0,1)
+AddZetaConvar('zetaplayer_ignoresmallnavareas',true,0,'If Zetas should ignore smaller nav areas',0,1)
+AddZetaConvar('zetaplayer_allowdisconnecting',true,0,'If Zetas are allowed to disconnect from your game',0,1)
+AddZetaConvar('zetaplayer_voicedsp',"normaltrue,","The DSP effect on the Zeta's voice",0,1)
+AddZetaConvar('zetaplayer_allowvoicepopup',true,0,"If speaking Zetas should have a voice chat popup",0,1)
+AddZetaConvar('zetaplayer_globalvoicechat',true,0,"If speaking Zeta voice should be hard globally just like real players",0,1)
+AddZetaConvar('zetaplayer_usecustomavatars',true,0,"If Zetas should use custom profile pictures from custom_avatars",0,1)
+AddZetaConvar('zetaplayer_limitdsp',true,1,"Limits the amount of Zetas that can have DSP effects. TURN THIS OFF AT YOUR OWN RISK! This is supposed to keep source from crashing because of all the sounds it has to process!",0,1)
+AddZetaConvar('zetaplayer_showprofilepicturesintab',true,0,"If tab menu should display zeta profile pictures",0,1)
+AddZetaConvar('zetaplayer_dsplimit',true,7,"The amount of Zetas that are allowed to have DSP effects",1,7)
+AddZetaConvar('zetaplayer_zetahealth',true,100,"The amount of health Zetas will spawn with",1,10000)
+AddZetaConvar('zetaplayer_naturalspawnrate',true,2,"The spawn rate in seconds for natural zetas to spawn",0.1,120)
+AddZetaConvar('zetaplayer_permamentfriendalwaysspawn',true,0,"If your permament friend should always be in game",0,1)
+AddZetaConvar('zetaplayer_allowassistsound',true,1,"If Zetas should speak on assists",0,1)
+AddZetaConvar('zetaplayer_dropweapons',true,0,"If Zetas should drop their weapons if they die",0,1)
+AddZetaConvar('zetaplayer_showpfpoverhealth',true,0,"If Zetas should show their profile picture when you hover over them",0,1)
+AddZetaConvar('zetaplayer_naturalzetahealth',true,100,"The amount of health Natural Zetas will spawn with",1,10000)
+AddZetaConvar('zetaplayer_allowstrafing',true,1,"If Zetas should strafe when attacking",0,1)
+AddZetaConvar('zetaplayer_triggermines',true,1, 'Makes Zetas trigger nearby Combine Mines to explode', 0, 1)
+AddZetaConvar('zetaplayer_triggermines_hoptime', true,0.5, 'Time required for the mine to hop towards a target after triggering it', 0, 5)
+AddZetaConvar('zetaplayer_disableunstuck', true,0, 'Disable the Unstuck system. Why?', 0, 1)
+AddZetaConvar('zetaplayer_killontouchnodraworsky', true, 1, 'If Zetas should die when they are touching a nodraw surface or sky surface', 0, 1)
+AddZetaConvar('zetaplayer_customidlelinesonly', true, 0, 'If Custom Idle Lines should only be used', 0, 1)
+AddZetaConvar('zetaplayer_customdeathlinesonly', true, 0, 'If Custom Death Lines should only be used', 0, 1)
+AddZetaConvar('zetaplayer_customkilllinesonly', true, 0, 'If Custom Kill Lines should only be used', 0, 1)
+AddZetaConvar('zetaplayer_customtauntlinesonly', true, 0, 'If Custom Kill Lines should only be used', 0, 1)
+AddZetaConvar('zetaplayer_damagedivider', true, 1, 'The amount damage will be divided by', 1, 10)
+AddZetaConvar('zetaplayer_explosivecorpsecleanup', true, 0, 'If Corpses should blow up when they are cleaned', 0, 10)
+AddZetaConvar('zetaplayer_useprofilesystem',true,0,'Use Zeta Profile Database to load data from instead of randomizing it',0,1)
+AddZetaConvar('zetaplayer_norepeatingpfps',true,0,'If enabled, prevents Zetas from having the same profile picture used again',0,1)
+AddZetaConvar('zetaplayer_usenewvoicechatsystem',true,0,'If Zetas speaking should use the new voice chat system | Community Contribute',0,1)
+AddZetaConvar('zetaplayer_allowsprays',true,0,'If Zetas are allowed to use sprays | Community Contribute',0,1)
+AddZetaConvar('zetaplayer_alwayshuntfortargets',true,0,'If Zetas should always hunt for a target',0,1)
+AddZetaConvar('zetaplayer_allowuse+onprops',true,1,'If Zetas are allowed to pickup props with use+',0,1)
+AddZetaConvar('zetaplayer_allowlamptool',true,1,'If Zetas are allowed to use the Lamp tool',0,1)
+AddZetaConvar('zetaplayer_lamplimit',true,1,'Lamp Limit',1,30)
+AddZetaConvar('zetaplayer_allowthrustertool',true,1,'If Zetas are allowed to use the Thruster tool',0,1)
+AddZetaConvar('zetaplayer_thrusterlimit',true,5,'Thruster Limit',1,60)
+AddZetaConvar('zetaplayer_forceadd',true,0,'The amount to add to Damage Force',0,10000)
+AddZetaConvar('zetaplayer_musicplayonce',true,0,'If Music Boxes should only play once and remove themselves',0,1)
+AddZetaConvar('zetaplayer_musicshuffle',true,1,'If Music Boxes should pick music randomly',0,1)
+AddZetaConvar('zetaplayer_showzetalogonscreen',true,0,'If Zeta Events should show up on screen',0,1)
+AddZetaConvar('zetaplayer_thrusterunfreeze',true,0,'If Zeta Thrusters should unfreeze whatever they are welded to',0,1)
+AddZetaConvar('zetaplayer_differentvoicepitch',true,0,'If Zetas should have different pitches in voice',0,1)
+AddZetaConvar('zetaplayer_voicepitchmin',true,80,'Voice pitch min and max',10,100)
+AddZetaConvar('zetaplayer_voicepitchmax',true,130,'Voice pitch min and max',100,255)
+AddZetaConvar('zetaplayer_mingebag',true,0,'If Zetas should be a mingebag',0,1)
+AddZetaConvar('zetaplayer_mapwidemingebag',true,0,'If Natural Zetas should be a mingebag',0,1)
+AddZetaConvar('zetaplayer_mapwidemingebagspawnchance',true,10,'The chance a natural Zeta will spawn as a mingebag',1,100)
+AddZetaConvar('zetaplayer_allowscoldvoice',true,1,'If Admins should scold their offender',0,1)
+AddZetaConvar('zetaplayer_zetaspawnerrespawntime',true,1,'Respawning Zeta spawn rate',0,120)
+AddZetaConvar('zetaplayer_playersizedsprays',true,1,'If Sprays should mimic the size of real player sprays',0,1)
+AddZetaConvar('zetaplayer_enabledrowning',true,1,'If Zetas should drown in water',0,1)
+AddZetaConvar('zetaplayer_bugbait_limit',true,4,'The amount of antlions a Zeta can summon',1,30)
+AddZetaConvar('zetaplayer_bugbait_lifetime',true,10,'The amount of time antlions can live for',0,120)
+AddZetaConvar('zetaplayer_bugbait_spawnhp',true,30,'The amount of health antlions will spawn with',1,500)
+AddZetaConvar('zetaplayer_jpgpropamount',true,15,'The amount of props the JPG will fire',1,15)
+AddZetaConvar('zetaplayer_c4debris',true,0,'If C4 should create debris on explosion',0,1)
+AddZetaConvar('zetaplayer_c4card',true,0,'If C4 should show up in a MW2 Card if the addon is installed',0,1)
+
+AddZetaConvar('zetaplayer_serverjunk',true,0,'If Props should be spawned when the player loads in',0,1)
+AddZetaConvar('zetaplayer_freezeserverjunk',true,0,'If server junk should spawn frozen',0,1)
+AddZetaConvar('zetaplayer_serverjunkcount',true,45,'The amount of props that will spawn on the map',0,400)
+
+
+
+AddZetaConvar('zetaplayer_customwitnesslinesonly', true, 0, 'If Custom Witness Lines should only be used', 0, 1)
+AddZetaConvar('zetaplayer_custompaniclinesonly', true, 0, 'If Custom Panic Lines should only be used', 0, 1)
+AddZetaConvar('zetaplayer_customassistlinesonly', true, 0, 'If Custom Assist Lines should only be used', 0, 1)
+AddZetaConvar('zetaplayer_customlaughlinesonly', true, 0, 'If Custom Laughing Lines should only be used', 0, 1)
+AddZetaConvar('zetaplayer_customadminscoldlinesonly', true, 0, 'If Custom Admin Scolding Lines should only be used', 0, 1)
+
+
+
+
+
+AddZetaConvar('zetaplayer_useteamsystem',true,0,'If Zetas should join a team if they can',0,1)
+AddZetaConvar('zetaplayer_eachteammemberlimit',true,3,'How many members can be in a team',2,100)
+AddZetaConvar('zetaplayer_playerteam',true,'','What Team real players should be in')
+AddZetaConvar('zetaplayer_overrideteam',true,'','What Team Zetas should be forced in')
+
+
+AddZetaConvar('zetaplayer_randombodygroups',true,1,'If Zetas should have random bodygroups',0,1)
+AddZetaConvar('zetaplayer_randomskingroups',true,1,'If Zetas should have random skins',0,1)
+
+AddZetaConvar('zetaplayer_personalitytype',true,'random','Type of personality the Zeta will be')
+AddZetaConvar('zetaplayer_buildchance',true,30,'Personality Chance',0,100)
+AddZetaConvar('zetaplayer_combatchance',true,30,'Personality Chance',0,100)
+AddZetaConvar('zetaplayer_toolchance',true,30,'Personality Chance',0,100)
+AddZetaConvar('zetaplayer_physgunchance',true,30,'Personality Chance',0,100)
+AddZetaConvar('zetaplayer_disrespectchance',true,30,'Personality Chance',0,100)
+AddZetaConvar('zetaplayer_watchmediaplayerchance',true,30,'Personality Chance',0,100)
+AddZetaConvar('zetaplayer_friendlychance',true,30,'Personality Chance',0,100)
+AddZetaConvar('zetaplayer_voicechance',true,30,'voice Chance',0,100)
+AddZetaConvar('zetaplayer_vehiclechance',true,30,'Vehicle Chance',0,100)
+
+
+AddZetaConvar('zetaplayer_naturalpersonalitytype',true,'random','Type of personality the Zeta will be')
+AddZetaConvar('zetaplayer_naturalbuildchance',true,30,'Personality Chance',0,100)
+AddZetaConvar('zetaplayer_naturalcombatchance',true,30,'Personality Chance',0,100)
+AddZetaConvar('zetaplayer_naturaltoolchance',true,30,'Personality Chance',0,100)
+AddZetaConvar('zetaplayer_naturalphysgunchance',true,30,'Personality Chance',0,100)
+AddZetaConvar('zetaplayer_naturaldisrespectchance',true,30,'Personality Chance',0,100)
+AddZetaConvar('zetaplayer_naturalwatchmediaplayerchance',true,30,'Personality Chance',0,100)
+AddZetaConvar('zetaplayer_naturalfriendlychance',true,30,'Personality Chance',0,100)
+AddZetaConvar('zetaplayer_naturalvoicechance',true,30,'voice Chance',0,100)
+AddZetaConvar('zetaplayer_naturalvehiclechance',true,30,'Vehicle Chance',0,100)
+
+
+
+
+-- Admin Convars 
+AddZetaConvar('zetaplayer_admindisplaynameRed',true,0,'Red value of the display name color',0,255)
+AddZetaConvar('zetaplayer_admindisplaynameGreen',true,148,'Green value of the display name color',0,255)
+AddZetaConvar('zetaplayer_admindisplaynameBlue',true,255,'Blue value of the display name color',0,255)
+
+AddZetaConvar('zetaplayer_adminoverridemodel',true,'models/player/police.mdl','Override the spawning model of a Admin Zeta')
+AddZetaConvar('zetaplayer_spawnasadmin',true,0,'If Admins should spawn',0,1)
+AddZetaConvar('zetaplayer_forcespawnadmins',true,0,'If Zetas that you spawn next should become admins',0,1)
+AddZetaConvar('zetaplayer_adminrule_nopropkill',true,1,'Enforce no prop killing',0,1)
+AddZetaConvar('zetaplayer_adminrule_rdm',true,1,'Enforce no random killing.',0,1)
+AddZetaConvar('zetaplayer_adminrule_griefing',true,1,'Enforce no altering of other entities that you do not own.',0,1)
+AddZetaConvar('zetaplayer_admintreatowner',true,0,'If admins should treat you as the owner and ignore your rulebreaking',0,1)
+AddZetaConvar('zetaplayer_adminprintecho',true,1,'If admins using commands should have their commands echo into chat',0,1)
+AddZetaConvar('zetaplayer_adminsctrictnessmin',true,0,'How Strict and harsh should the admins be',0,100)
+AddZetaConvar('zetaplayer_adminsctrictnessmax',true,30,'How Strict and harsh should the admins be',0,100)
+AddZetaConvar('zetaplayer_adminshouldsticktogether',true,0,'If admins should stick together most of the time',0,1)
+AddZetaConvar('zetaplayer_admincount',true,1,'How many Admins can there be',1,100)
+
+
+AddZetaConvar('zetaplayer_allowpistol',true,1,'Allows the Zeta to equip the pistol',0,1)
+AddZetaConvar('zetaplayer_allowar2',true,1,'Allows the Zeta to equip the ar2',0,1)
+AddZetaConvar('zetaplayer_allowshotgun',true,1,'Allows the Zeta to equip the shotgun',0,1)
+AddZetaConvar('zetaplayer_allowsmg',true,1,'Allows the Zeta to equip the smg',0,1)
+AddZetaConvar('zetaplayer_allowrpg',true,1,'Allows the Zeta to equip the rpg',0,1)
+AddZetaConvar('zetaplayer_allowcrowbar',true,1,'Allows the Zeta to equip the crowbar',0,1)
+AddZetaConvar('zetaplayer_allowstunstick',true,1,'Allows the Zeta to equip the stunstick',0,1)
+AddZetaConvar('zetaplayer_allowrevolver',true,1,'Allows the Zeta to equip the revolver',0,1)
+AddZetaConvar('zetaplayer_allowtoolgun',true,1,'Allows the Zeta to equip the toolgun',0,1)
+AddZetaConvar('zetaplayer_allowphysgun',true,1,'Allows the Zeta to equip the physgun',0,1)
+AddZetaConvar('zetaplayer_allowknife',true,1,'Allows the Zeta to equip the knife',0,1)
+AddZetaConvar('zetaplayer_allowfist',true,1,'Allows the Zeta to use their fists',0,1)
+AddZetaConvar('zetaplayer_allowcrossbow',true,1,'Allows the Zeta to use the crossbow',0,1)
+AddZetaConvar('zetaplayer_allowm4a1',true,1,'Allows the Zeta to use the m4a1',0,1)
+AddZetaConvar('zetaplayer_allowawp',true,1,'Allows the Zeta to use the awp',0,1)
+AddZetaConvar('zetaplayer_allowcamera',true,1,'Allows the Zeta to use the camera',0,1)
+AddZetaConvar('zetaplayer_allowwrench',true,1,'Allows the Zeta to use the Wrench',0,1)
+AddZetaConvar('zetaplayer_allowscattergun',true,1,'Allows the Zeta to use the Scatter gun',0,1)
+AddZetaConvar('zetaplayer_allowtf2pistol',true,1,'Allows the Zeta to use the TF2 Pistol',0,1)
+AddZetaConvar('zetaplayer_allowak47',true,1,'Allows the Zeta to use the AK47',0,1)
+AddZetaConvar('zetaplayer_allowmachinegun',true,1,'Allows the Zeta to use the Machine Gun',0,1)
+AddZetaConvar('zetaplayer_allowdeagle',true,1,'Allows the Zeta to use the Desert Eagle',0,1)
+AddZetaConvar('zetaplayer_allowtf2sniper',true,1,'Allows the Zeta to use the TF2 Sniper',0,1)
+AddZetaConvar('zetaplayer_allowtf2shotgun',true,1,'Allows the Zeta to use the TF2 Shotgun',0,1)
+AddZetaConvar('zetaplayer_allowgrenades',true,1,'Allows the Zeta to use Grenades',0,1)
+AddZetaConvar('zetaplayer_allowmp5',true,1,'Allows the Zeta to use MP5',0,1)
+AddZetaConvar('zetaplayer_allowjpg',true,1,'Allows the Zeta to use the JPG',0,1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 AddZetaConvar("zetaplayer_customsitrespondlinesonly",true,0,"If Zetas should only use your custom sit respond lines",0,1)
 AddZetaConvar("zetaplayer_custommediawatchlinesonly",true,0,"If Zetas should only use your custom Media Watch lines",0,1)
-AddZetaConvar("zetaplayer_friendcustomsitrespondlinesonly",true,0,"If Zetas should only use your custom sit respond lines",0,1)
-AddZetaConvar("zetaplayer_friendcustommediawatchlinesonly",true,0,"If Zetas should only use your custom media watch lines",0,1)
+
 
 AddZetaConvar("zetaplayer_allowmediawatchvoice",true,1,"If Zetas should speak while watching a media player",0,1)
 
@@ -1855,26 +1732,24 @@ AddZetaConvar("zetaplayer_profilesystemonly",true,0,"If Zetas should spawn using
 AddZetaConvar("zetaplayer_allowfallingvoice",true,1,"If Zetas should speak when falling",0,1)
 
 AddZetaConvar("zetaplayer_customfallinglinesonly",true,0,"If custom falling sounds should only be used",0,1)
-AddZetaConvar("zetaplayer_friendcustomfallinglinesonly",true,0,"If your permanent should only use custom falling sounds",0,1)
+
 
 AddZetaConvar("zetaplayer_customquestionlinesonly",true,0,"If custom question sounds should only be used",0,1)
-AddZetaConvar("zetaplayer_friendcustomquestionlinesonly",true,0,"If your permanent should only use custom question sounds",0,1)
+
 
 AddZetaConvar("zetaplayer_customrespondlinesonly",true,0,"If custom respond sounds should only be used",0,1)
-AddZetaConvar("zetaplayer_friendcustomrespondlinesonly",true,0,"If your permanent should only use custom respond sounds",0,1)
+
 
 AddZetaConvar("zetaplayer_allowconversations",true,1,"If Zetas can walk up to somebody and have a conversation",0,1)
 
 
 AddZetaConvar('zetaplayer_zetaarmor',true,0,"The amount of armor Zetas will spawn with",0,10000)
 AddZetaConvar('zetaplayer_naturalzetaarmor',true,0,"The amount of armor Natural Zetas will spawn with",0,10000)
-AddZetaConvar('zetaplayer_friendarmor',true,0,"The amount of armor your friend will spawn with",0,10000)
 AddZetaConvar('zetaplayer_armorabsorbpercent',true,80,'How much percent of damage should zetas armor absorb',1,100)
 
 AddZetaConvar('zetaplayer_startconversationchance',true,25,'The chance a zeta will look for someone to talk to when they attempt',1,100)
 AddZetaConvar('zetaplayer_textchance',true,30,'The chance a zeta will type in text chat',0,100)
 AddZetaConvar('zetaplayer_naturaltextchance',true,30,'The chance a zeta will type in text chat',0,100)
-AddZetaConvar('zetaplayer_friendtextchance',true,30,'The chance a zeta will type in text chat',0,100)
 AddZetaConvar('zetaplayer_allowtextchat',true,1,'If Zetas are allowed to use text chat',0,1)
 
 AddZetaConvar('zetaplayer_callonnpckilledhook',true,0,'If killed Zetas should call the onkilledhook',0,1)
@@ -1991,12 +1866,13 @@ AddZetaConvar('zetaplayer_spawnatteamspawns', true, 0, "If the player should spa
 AddZetaConvar('zetaplayer_showkothpointsonhud', true, 0, "If KOTH points should show on your HUD", 0, 1)
 
 AddZetaConvar('zetaplayer_10secondcountdownsound', true, "zetaplayer/koth/tensecond.mp3", "The sound that should play when the timer hits 10 seconds")
+AddZetaConvar('zetaplayer_koth30secondssound', true, "zetaplayer/ctf/30seconds.mp3", "Sound that will play when the time reaches 30 seconds")
 
 AddZetaConvar('zetaplayer_kothgameover', true, "zetaplayer/koth/loss.wav", "The sound that should play when game ends")
 AddZetaConvar('zetaplayer_kothvictory', true, "zetaplayer/koth/won.wav", "The sound that should play when your team wins")
 AddZetaConvar('zetaplayer_kothgamestart', true, "zetaplayer/koth/chooseteam.mp3", "The sound that should play when game starts")
 
-AddZetaConvar('zetaplayer_kothmodetime', true, 190, "If KOTH points should show on your HUD", 10)
+AddZetaConvar('zetaplayer_kothmodetime', true, 190, "KOTH Time limit", 10)
 AddZetaConvar('zetaplayer_kothcapturerate', true, 0.2, "The capture rate of koth points", 0.01, 5)
 AddZetaConvar('zetaplayer_enablefriendlyfire', true, 0, "If friendly fire is enabled with teams", 0, 1)
 
@@ -2010,17 +1886,116 @@ AddZetaConvar('zetaplayer_ctfflagdropped', true, "zetaplayer/ctf/flagdropped.wav
 AddZetaConvar('zetaplayer_ctfourflagcapturesound', true, "zetaplayer/ctf/ourflagcaptured.wav", "Sound that will play when your team's flag is captured")
 AddZetaConvar('zetaplayer_ctfourflagstolensound', true, "zetaplayer/ctf/ourflagstole.wav", "Sound that will play when your team's flag is stolen")
 
+AddZetaConvar('zetaplayer_ctfmodetime', true, 280, "CTF Time limit", 10)
+AddZetaConvar('zetaplayer_ctfcapturelimit', true, 3, "CTF Capture limit", 0)
+AddZetaConvar('zetaplayer_ctf30secondssound', true, "zetaplayer/ctf/30seconds.mp3", "Sound that will play when the time reaches 30 seconds")
+AddZetaConvar('zetaplayer_ctf10secondssound', true, "zetaplayer/ctf/10seconds.mp3", "Sound that will play when the time reaches 10 seconds")
+
+AddZetaConvar('zetaplayer_ctfreturntime', true, 15, "CTF Capture limit", 0,120)
+
+
+AddZetaConvar('zetaplayer_ctfgamestartsound', true, "zetaplayer/ctf/gamestart/*", "Sound that will play when the game starts")
+AddZetaConvar('zetaplayer_ctfvictorysound', true, "zetaplayer/ctf/win/*", "Sound that will play when your team wins")
+AddZetaConvar('zetaplayer_ctflosssound', true, "zetaplayer/ctf/loss/*", "Sound that will play when your team loses")
+
+AddZetaConvar('zetaplayer_tdmmodetime', true, 280, "TDM Time limit", 10)
+AddZetaConvar('zetaplayer_tdmkilllimit', true, 30, "TDM Time limit", 1)
+AddZetaConvar('zetaplayer_tdm10killsremain', true, "zetaplayer/tdm/10killsleft.mp3", "Sound that will play when a team needs 10 more kills to win")
+AddZetaConvar('zetaplayer_tdmgamestartsound', true, "zetaplayer/ctf/gamestart/*", "Sound that will play when the game starts")
+AddZetaConvar('zetaplayer_tdm30secondssound', true, "zetaplayer/ctf/30seconds.mp3", "Sound that will play when the time reaches 30 seconds")
+AddZetaConvar('zetaplayer_tdm10secondssound', true, "zetaplayer/ctf/10seconds.mp3", "Sound that will play when the time reaches 10 seconds")
+
+AddZetaConvar('zetaplayer_tdmvictorysound', true, "zetaplayer/ctf/win/*", "Sound that will play when your team wins")
+AddZetaConvar('zetaplayer_tdmlosssound', true, "zetaplayer/ctf/loss/*", "Sound that will play when your team loses")
+
+
 AddZetaConvar('zetaplayer_textchatreceivedistance', true, 0, "How far you can receive text messages from Zetas. leave zero for global", 0, 10000)
 
-include("zeta/zetaspawnmenusettings.lua")
+AddZetaConvar('zetaplayer_grenade_throwchance', true, 25, "The chance of zeta to throw a grenade while panicking or in-combat", 0, 100)
+AddZetaConvar('zetaplayer_grenade_switchtoweapon', true, 1, "If the zetas should switch to the grenade weapon in order to throw it instead of using the quicknade method", 0, 1)
+
+AddZetaConvar('zetaplayer_flashbang_ignorethrower', true, 0, "If the flashbang should ignore the thrower", 0, 1)
+AddZetaConvar('zetaplayer_flashbang_ignoreteammates', true, 0, "If the flashbang should ignore thrower's friends and teammates", 0, 1)
+AddZetaConvar('zetaplayer_cssnades_changeweapons', true, 1, "If the Zetas should change their weapon once when they threw flashbang or smokegrenade", 0, 1)
+
+AddZetaConvar('zetaplayer_voicepopup_useteamcolor', true, 1, "If the Zeta's voicechat popup should use its team color when currently in team", 0, 1)
+
+AddZetaConvar('zetaplayer_eyetap_followcorpse', true, 1, "If the view from Zeta Eye Tapper should switch to zeta's corpse after death", 0, 1)
+
+AddZetaConvar('zetaplayer_maxspeakingzetas', true, 0, "The amount of Zetas that can speak at the same time", 0, 100)
+
+AddZetaConvar('zetaplayer_textchatslowtime', true, 0, "The time before a zeta can send a message in chat", 0, 10)
+
+AddZetaConvar('zetaplayer_combataccuracylevel', true, 4, "The accuracy level of Zetas", 0, 4)
+
+AddZetaConvar('zetaplayer_walkspeed', true, 200, "The walk speed", 100, 1500)
+AddZetaConvar('zetaplayer_runspeed', true, 400, "The run speed", 100, 1500)
+
+AddZetaConvar('zetaplayer_panelbgm', true, "", "Music that will play in the background while in a panel")
+
+AddZetaConvar('zetaplayer_nohurtfriends', true, 0, "If friends should not be able to hurt each other", 0, 1)
+
+AddZetaConvar('zetaplayer_paniconfire', true, 0, "If Zetas are on fire, they will panic", 0, 1)
+
+AddZetaConvar('zetaplayer_allowprops', true, 1, "If Zetas are allowed to spawn props", 0, 1)
+
+AddZetaConvar('zetaplayer_allowmedkits', true, 1, "If Zetas are allowed to spawn medkits to heal themselves or others", 0, 1)
+
+AddZetaConvar('zetaplayer_allowarmorbatteries', true, 1, "If Zetas are allowed to spawn batteries to charge themselves or others", 0, 1)
+
+AddZetaConvar('zetaplayer_timebasedmws', true, 0, "If MWS should dynamically change spawn times and zeta amount depending on your time", 0, 1)
+
+AddZetaConvar('zetaplayer_teamsstickneareachother', true, 0, "If Teams should stick near each other", 0, 1)
+AddZetaConvar("zetaplayer_teamsstickneardistance",true,300,"The distance Zetas can wander from their friend",0,15000)
+
+AddZetaConvar('zetaplayer_noplycollisions', true, 0, "If Zetas are allowed to pass through the player", 0, 1)
+
+AddZetaConvar('zetaplayer_building_nocollideprops', true, 0, "If Zetas manually building a dupe should no collide props before placing them into position", 0, 1)
+AddZetaConvar('zetaplayer_building_allowduplications', true, 1, "If Zetas are allowed to spawn/build dupes", 0, 1)
+AddZetaConvar('zetaplayer_building_useplayerdupes', true, 0, "If Zetas are allowed to use any and all dupes you have", 0, 1)
+AddZetaConvar('zetaplayer_building_dupecooldown', true, 120, "The time until a zeta can spawn another duplication", 0, 1000)
+AddZetaConvar('zetaplayer_building_allowaddingontoprops', true, 0, "If Zetas are allowed to build props on another prop", 0, 1)
+AddZetaConvar('zetaplayer_building_placedupesinopenareas', true, 0, "If Zetas should only place dupes when they are in open spaces", 0, 1)
+AddZetaConvar('zetaplayer_building_dupebuildmode', true, 0, "How should the zetas build dupes. 0 is for random between manual building and toolgun spawned dupes. 1 is for manual building only. 2 is for toolgun spawned dupes only", 0, 2)
+
+AddZetaConvar('zetaplayer_building_buildconstraintsound', true, "zetaplayer/misc/buildconstraint.wav", "The sound that will play when a constraint is created in a dupe")
+AddZetaConvar('zetaplayer_building_buildentitysound', true, "garrysmod/content_downloaded.wav", "The sound that will play when a entity is created in a dupe")
+AddZetaConvar('zetaplayer_building_finishdupesound', true, "garrysmod/save_load1.wav", "The sound that will play when a dupe finishes building")
+
+AddZetaConvar('zetaplayer_usepanicanimation', true, 1, "If panicking Zetas should use the panic animation", 0, 1)
+
+AddZetaConvar('zetaplayer_zetaspawnerspawnatplayerspawns', true, 0, "If respawning Zetas should respawn at random player spawnpoints", 0, 1)
+
+AddZetaConvar('zetaplayer_profileusechance', true, 0, "The chance a zeta will spawn using a random profile", 0, 100)
+
+AddZetaConvar("zetaplayer_paig_sentrybustermode", true, 0, "If PAIG should use sounds and mechanics from TF2's Sentry Buster", 0, 1)
+
+AddZetaConvar("zetaplayer_experimentalcombat", true, 0, "Enables the experimental combat behavior to zetas.", 0, 1)
+
+AddZetaConvar("zetaplayer_textmixing", true, 0, "If text should be modified by sentence mixing", 0, 1)
+
+-- DEBUG CONVARS
+    AddZetaConvar('zetaplayer_debug_warnrapidstatechange', false, 0, "If rapid state changes should be warned", 0, 1)
+    AddZetaConvar('zetaplayer_debug_displayspawntime', false, 0, "If the time it takes for a zeta to initialize and start their ai", 0, 1)
+    AddZetaConvar('zetaplayer_debug_displaypathfindingpaths', false, 0, "If paths Zetas use for pathfinding should be rendered", 0, 1)
+-- 
+
+
+
+-- I was wondering why MWS wasn't working. turns out convars were not set yet
+if SERVER then
+    include("zeta/mapwidespawning.lua")
+end
+
+
 
 function ZetaGetTeamColor(zetateam)
     local teamdata = file.Read("zetaplayerdata/teams.json")
     teamdata = util.JSONToTable(teamdata)
     local foundteam = nil
-    for k,v in ipairs(teamdata) do
-        if v[1] == zetateam then
-            foundteam = v
+    for i=1, #teamdata do
+        if teamdata[i][1] == zetateam then
+            foundteam = teamdata[i]
             break
         end
     end
@@ -2035,9 +2010,9 @@ function ZetaGetTeamSpawns(zetateam)
     local teamspawns = ents.FindByClass("zeta_teamspawnpoint")
     local spawns = {}
   
-    for k,v in ipairs(teamspawns) do
-      if v:GetTeamSpawn() == zetateam then
-        spawns[#spawns+1] = v
+    for i=1, #teamspawns do
+      if teamspawns[i]:GetTeamSpawn() == zetateam then
+        spawns[#spawns+1] = teamspawns[i]
       end
     end
   
@@ -2049,7 +2024,7 @@ function ZetaGetTeamSpawns(zetateam)
 if ( CLIENT ) then
 
     
-
+    include("zeta/zetaspawnmenusettings.lua")
 
 
     local zetarender = {}
@@ -2132,33 +2107,36 @@ if ( CLIENT ) then
     end
 
     
-    CreateClientConVar('zetaplayer_displayzetanames',1,true,false,'If Zetas should show their names when you hover over them',0,1)
-    CreateClientConVar('zetaplayer_showfriends',1,true,false,'Show a Friend Tag above a Zeta who has considered you a friend',0,1)
-    CreateClientConVar('zetaplayer_displayarmor',0,true,false,'If name displays should show armor',0,1)
-    CreateClientConVar('zetaplayer_frienddisplaydistance',1400,true,false,'Distance to display the Friend Tag',0,10000)
-    CreateClientConVar('zetaplayer_displaynamerainbow',0,true,false,'If the display names should change color linearly',0,1)
-    CreateClientConVar('zetaplayer_drawvoiceicon',1,true,false,'If the Voice Icons should appear',0,1)
-    CreateClientConVar('zetaplayer_drawfriendhalo',1,true,false,'If a Friend Zeta should have a halo drawn over it',0,1)
-    CreateClientConVar('zetaplayer_drawfriendhalothroughworld',0,true,false,"If a Friend Zeta's halo should draw through the world",0,1)
-    CreateClientConVar('zetaplayer_drawflashlight',1,true,false,'If Zeta Flashlights should draw',0,1)
-    CreateClientConVar('zetaplayer_showconnectmessages',0,true,false,'If newly spawned Zetas should send a connect message in chat',0,1)
-    CreateClientConVar('zetaplayer_zetascreenshotfov',90,true,false,'The FOV of the screenshots',10,180)
-    CreateClientConVar('zetaplayer_zetascreenshotfiletype','jpg',true,false,'The file type of the screenshot')
-    CreateClientConVar('zetaplayer_zetascreenshotchance',10,true,false,'The chance of a View Shot will render and saved each time a Zeta requests a view shot')
-    CreateClientConVar('zetaplayer_voicepopupdrawdistance',0,true,false,'The distance a voice popup will be drawn. Set this to 0 for unlimited',0,15000)
+    AddZetaConvar('zetaplayer_displayzetanames',true,1,'If Zetas should show their names when you hover over them',0,1)
+    AddZetaConvar('zetaplayer_showfriends',true,1,'Show a Friend Tag above a Zeta who has considered you a friend',0,1)
+    AddZetaConvar('zetaplayer_displayarmor',true,0,'If name displays should show armor',0,1)
+    AddZetaConvar('zetaplayer_frienddisplaydistance',true,1400,'Distance to display the Friend Tag',0,10000)
+    AddZetaConvar('zetaplayer_displaynamerainbow',true,0,'If the display names should change color linearly',0,1)
+    AddZetaConvar('zetaplayer_drawvoiceicon',true,1,'If the Voice Icons should appear',0,1)
+    AddZetaConvar('zetaplayer_drawfriendhalo',true,1,'If a Friend Zeta should have a halo drawn over it',0,1)
+    AddZetaConvar('zetaplayer_drawfriendhalothroughworld',true,0,"If a Friend Zeta's halo should draw through the world",0,1)
+    AddZetaConvar('zetaplayer_drawflashlight',true,1,'If Zeta Flashlights should draw',0,1)
+    AddZetaConvar('zetaplayer_showconnectmessages',true,0,'If newly spawned Zetas should send a connect message in chat',0,1)
+    AddZetaConvar('zetaplayer_zetascreenshotfov',true,90,'The FOV of the screenshots',10,180)
+    AddZetaConvar('zetaplayer_zetascreenshotfiletype',true,'jpg','The file type of the screenshot')
+    AddZetaConvar('zetaplayer_zetascreenshotchance',true,10,'The chance of a View Shot will render and saved each time a Zeta requests a view shot')
+    AddZetaConvar('zetaplayer_voicepopupdrawdistance',true,0,'The distance a voice popup will be drawn. Set this to 0 for unlimited',0,15000)
 
 
-    CreateClientConVar('zetaplayer_voicepopup_x',1.17,true,false,'Screencord',0,100)
-    CreateClientConVar('zetaplayer_voicepopup_y',1.15,true,false,'Screencord',0,100)
+    AddZetaConvar('zetaplayer_voicepopup_x',true,1.17,'Screencord',0,100)
+    AddZetaConvar('zetaplayer_voicepopup_y',true,1.15,'Screencord',0,100)
 
 
-    CreateClientConVar('zetaplayer_drawteamhalo',1,true,false,'If a team member should have a halo drawn over it',0,1)
-    CreateClientConVar('zetaplayer_drawteamname',1,true,false,"If a team member should have it's team drawn over it",0,1)
-    CreateClientConVar('zetaplayer_drawteamhalothroughworld',0,true,false,"If a team member's halo should draw through the world",0,1)
-    CreateClientConVar('zetaplayer_teamnamedrawdistance',1400,true,false,'Distance to display the Team Tag',0,10000)
-    CreateClientConVar('zetaplayer_teamcolorRed',0,true,false,'Red value of the team color',0,255)
-    CreateClientConVar('zetaplayer_teamcolorGreen',180,true,false,'Green value of the team color',0,255)
-    CreateClientConVar('zetaplayer_teamcolorBlue',180,true,false,'Blue value of the team color',0,255)
+    AddZetaConvar('zetaplayer_drawteamhalo',true,1,'If a team member should have a halo drawn over it',0,1)
+    AddZetaConvar('zetaplayer_drawteamname',true,1,"If a team member should have it's team drawn over it",0,1)
+    AddZetaConvar('zetaplayer_drawteamhalothroughworld',true,0,"If a team member's halo should draw through the world",0,1)
+    AddZetaConvar('zetaplayer_teamnamedrawdistance',true,1400,'Distance to display the Team Tag',0,10000)
+    AddZetaConvar('zetaplayer_teamcolorRed',true,0,'Red value of the team color',0,255)
+    AddZetaConvar('zetaplayer_teamcolorGreen',true,180,'Green value of the team color',0,255)
+    AddZetaConvar('zetaplayer_teamcolorBlue',true,180,'Blue value of the team color',0,255)
+
+
+
 
 
 
@@ -2322,6 +2300,7 @@ if ( CLIENT ) then
         local model = net.ReadString()
         local dur = net.ReadFloat()
         local ID = net.ReadInt(32)
+        local color = net.ReadColor()
         local mat
 
         if model != nil then
@@ -2356,25 +2335,26 @@ if ( CLIENT ) then
 
 
         if GetConVar("zetaplayer_usenewvoicechatsystem"):GetInt() == 1 then
-        if #speakingZetas > 0 then
-            for k,tbl in ipairs(speakingZetas) do
-                if tbl[2] == finalname then
-                    tbl[4] = RealTime() + dur
-                    return
+            if #speakingZetas > 0 then
+                for k,tbl in ipairs(speakingZetas) do
+                    if tbl[2] == finalname then
+                        tbl[4] = RealTime() + dur
+                        return
+                    end
                 end
             end
-        end
         
-        table.insert(speakingZetas, {ID,finalname,mat,RealTime()+dur,RealTime()})
-    else
+        speakingZetas[#speakingZetas+1] = {ID,finalname,mat,RealTime()+dur,RealTime(),color}
 
-        local index = table.insert(speakingZetas, {ID,finalname,mat})
+    else
+        local index = #speakingZetas+1
+        speakingZetas[index] = {ID,finalname,mat}
         timer.Simple(dur,function()
-        for k,tbl in ipairs(speakingZetas) do
-            if tbl[1] == ID then
-                table.remove(speakingZetas,k)
+            for k,tbl in ipairs(speakingZetas) do
+                if tbl[1] == ID then
+                    table.remove(speakingZetas,k)
+                end
             end
-        end
         end)
         end
     end)
@@ -2444,8 +2424,8 @@ if ( CLIENT ) then
 
 
     hook.Add('HUDPaint','_zetahudpaint',function() -- Show Zeta stuff
-
-        if GetGlobalBool("_ZetaKOTH_Gameactive") then
+        
+        if GetGlobalBool("_ZetaKOTH_Gameactive") or GetGlobalBool("_ZetaCTF_Gameactive") or GetGlobalBool("_ZetaTDM_Gameactive") then
             local w = ScrW()/2
             local h = ScrH()/50
             local time = string.FormattedTime( GetGlobalInt("_ZetaKOTH_time",0), "%02i:%02i:%02i" )
@@ -2475,15 +2455,18 @@ if ( CLIENT ) then
 
                 if logdata.dur < CurTime() then
                     logdata.alpha = logdata.alpha - 5
+                    logdata.color.a = logdata.alpha
                     if logdata.alpha <= 0 then
+                        
                         table.remove(logevents, index)
                     end
                 end
 
+
                 
-                zetaname_color.r = logdata.color.r
-                zetaname_color.g = logdata.color.g
-                zetaname_color.b = logdata.color.b
+
+                
+
 
                 draw.TextShadow( {
                     text = logdata.log,
@@ -2491,7 +2474,7 @@ if ( CLIENT ) then
                     font = "DebugFixedSmall",
 
 
-                    color = zetaname_color
+                    color = logdata.color
                 }, 1.2, logdata.alpha )
                 --draw.DrawText( logdata.log, "DebugFixedSmall", ScrW()/50, y, Color(255,255,255,255), TEXT_ALIGN_LEFT )
                 
@@ -2554,6 +2537,7 @@ if ( CLIENT ) then
                     local name = vcdata[2]
                     local icon = vcdata[3]
                     local dur = vcdata[4]
+                    local color = vcdata[6]
                     
 
                     if GetConVar('zetaplayer_globalvoicechat'):GetInt() == 0 and (RealTime() - vcdata[5]) < 0.2 then continue end
@@ -2563,7 +2547,7 @@ if ( CLIENT ) then
                     -- Use the new local variable instead of table's index
                     
 
-                    local green = 0
+                    local popColor = Color(0, 0, 0)
                     local tooFar = false
                     for k, v in pairs(voiceChannels) do
                     
@@ -2573,14 +2557,14 @@ if ( CLIENT ) then
                                 tooFar = true
                             else
                                 // Turn the box green depending on sound volume
-                                green = 255 * v[3]
+                                popColor = Color(color.r * v[3], color.g * v[3], color.b * v[3])
                             end
                     
                             break;
                         end
                     end
                     
-                    if alpha > 0 and tooFar == false then
+                    if alpha > 0 and !tooFar then
                     -- Increment the new local variable
                     popupCount = popupCount + 1
                     end
@@ -2594,8 +2578,7 @@ if ( CLIENT ) then
                     if alpha <= 0 then
                         table.remove(speakingZetas, index)
                     elseif !tooFar then
-                        voicechat_color.g = green
-                        voicechat_color.a = alpha-15
+                        voicechat_color = Color(popColor.r, popColor.g, popColor.b, alpha-15) 
  
                         draw.RoundedBox( 4, x, y, 230, 50, voicechat_color )
 
@@ -2837,7 +2820,7 @@ if ( CLIENT ) then
         local traceent = trace.Entity
 
 
-        if traceent.Entity and traceent.Entity:IsValid() and traceent.Entity:GetClass() == 'npc_zetaplayer' then
+        if IsValid(traceent) and traceent:GetClass() == 'npc_zetaplayer' then
             local r,g,b = traceent:GetColorByRank()
             zetadisplay_name.r = r
             zetadisplay_name.g = g
@@ -2847,7 +2830,7 @@ if ( CLIENT ) then
             if traceent:GetNW2String("zeta_team","") != "" then teamadd = " | "..traceent:GetNW2String("zeta_team","").." Member" end
             if traceent:GetNW2Bool("zeta_isadmin",false) then addname = "  | ADMIN " end
 
-            local name = traceent.Entity:GetNW2String('zeta_name','Zeta Player')..teamadd..addname
+            local name = traceent:GetNW2String('zeta_name','Zeta Player')..teamadd..addname
  
 
 
@@ -2860,24 +2843,26 @@ if ( CLIENT ) then
                 draw.DrawText("Armor: "..armor..' %','ChatFont',w/2,h/1.85,zetadisplay_name,TEXT_ALIGN_CENTER)
             end
 
-            local friendlist = traceent.Entity:GetNW2String("zeta_friendlist","none")
+            local friendlist = traceent:GetNW2String("zeta_friendlist","none")
             if friendlist != "none" then
                 draw.DrawText(friendlist, 'ChatFont', w/2, h/1.77, zetadisplay_name, TEXT_ALIGN_CENTER)
             end
 
             if GetConVar("zetaplayer_showpfpoverhealth"):GetInt() == 1 and game.SinglePlayer() then
-                local pfp = traceent.Entity:GetNW2String('zeta_profilepicture',"none")
+                local pfp = traceent:GetNW2String('zeta_profilepicture',"none")
                     
 
                 if pfp != "none" then
-                    if !traceent.Entity.zetapfpcache then
+                    if !traceent.zetapfpcache then
                         local mat = Material(pfp)
-                        traceent.Entity.zetapfpcache = mat
+                        traceent.zetapfpcache = mat
                     end
-                    zetarender.SetMaterial(traceent.Entity.zetapfpcache)
-                    zetarender.DrawScreenQuadEx( w/2+5*#name, h/2 , 40, 40 )
-                    if traceent.Entity.zetapfpcache:IsError() and canprint then
-                        canprint = false
+                    if traceent.zetapfpcache then
+                        zetarender.SetMaterial(traceent.zetapfpcache)
+                        zetarender.DrawScreenQuadEx( w/2+5*#name, h/2 , 40, 40 )
+                        if traceent.zetapfpcache:IsError() and canprint then
+                            canprint = false
+                        end
                     end
                 end
 
@@ -2899,10 +2884,7 @@ if ( CLIENT ) then
             if #team_mates > 0 then
 
                 local r,g,b = dummyent:GetColorByRank()
-                zeta_halos.r = r
-                zeta_halos.g = g
-                zeta_halos.b = b
-                halo.Add(team_mates,zeta_halos,1,1,2,true,GetConVar('zetaplayer_drawteamhalothroughworld'):GetBool())
+                halo.Add(team_mates,Color(r,g,b),1,1,2,true,GetConVar('zetaplayer_drawteamhalothroughworld'):GetBool())
             end
         end
 
@@ -2961,136 +2943,12 @@ function CleanViewShotFolder(caller)
 end
 
 
-function OpenNameRegisterPanel(caller)
-    if caller:IsPlayer() and !caller:IsSuperAdmin() then 
-        net.Start('zeta_notifycleanup',true)
-        net.WriteString('Only Super Admins can use these panels!')
-        net.WriteBool(true)
-        net.Send(caller)
-     return 
-    end
-    local names = {}
-    
-    net.Start('zetapanel_getnames')
-    net.SendToServer()
-    local starttime = CurTime()
-
-    notification.AddLegacy("Requesting names from Server..",NOTIFY_CLEANUP,4)
-
-
-    net.Receive('zetapanel_sendnames',function()
-    local name = net.ReadString()
-    local isdone = net.ReadBool()
-    table.insert(names,name)
-
-    if isdone then
-    notification.AddLegacy("Received all names! Took "..CurTime()-starttime.." seconds",NOTIFY_CLEANUP,4)
-    local count = #names
-
-    local panel = vgui.Create( 'DFrame' )
-    panel:SetDeleteOnClose( true )
-    panel:CenterHorizontal(0.3)
-    panel:CenterVertical(0.4)
-    panel:SetTitle('Zeta Name Panel')
-    panel:SetIcon( 'icon/physgun.png' )
-    panel:SetSize(600,500)
-    panel:MakePopup()
-    local label = vgui.Create( 'DLabel', panel )
-    label:SetText('Welcome to the Name Panel! There are '..count..' Names.')
-    label:Dock(TOP)
-
-    local label2 = vgui.Create( 'DLabel', panel )
-    label2:SetText('You can Register names by using the text box below and you can remove names by right clicking on a name.')
-    label2:Dock(TOP)
-    
-    local panellist = vgui.Create( 'DListView', panel )
-
-    panellist:Dock(TOP)
-    panellist:SetSize(100,300)
-    panellist:AddColumn('Zeta Names',1)
-
-    function panellist:OnRowRightClick(id,line)
-        net.Start('zetapanel_removename')
-        net.WriteString(line:GetSortValue(1))
-        net.SendToServer()
-        notification.AddLegacy('Removed '..line:GetSortValue(1)..' from Zeta names',NOTIFY_CLEANUP,4)
-        LocalPlayer():EmitSound('buttons/button15.wav')
-        panellist:RemoveLine( id )
-        panellist:SetDirty( true )
-        count = count - 1
-        label:SetText('Welcome to the Name Panel! There are '..count..' Names. Re-open the panel when you need to see changes')
-    end
-
-    for k,v in ipairs(names) do
-        local line = panellist:AddLine(v)
-        line:SetSortValue( 1, v )
-    end
-
-    local resetbutton = vgui.Create( 'DButton', panel )
-    resetbutton:Dock(BOTTOM)
-    resetbutton:SetText('Reset Names to Default. A backup file will save your names before they are reset')
-
-    function resetbutton:DoClick()
-        net.Start('zetapanel_resetnames')
-        net.SendToServer()
-        notification.AddLegacy('Reset Zeta Names to Default!',NOTIFY_CLEANUP,4)
-        LocalPlayer():EmitSound('buttons/button15.wav')
-        panel:Close()
-    end
-
-    local textpanel = vgui.Create( 'DTextEntry', panel)
-    textpanel:DockMargin(0, 0, 0, 60)
-    textpanel:Dock(BOTTOM)
-
-    function textpanel:OnEnter(val)
-        if val != '' then
-        net.Start('zetapanel_addname')
-        net.WriteString(val)
-        net.SendToServer()
-        textpanel:SetText('')
-        local line = panellist:AddLine(val)
-        line:SetSortValue( 1, val )
-        panellist:SetDirty( true )
-        count = count + 1
-        label:SetText('Welcome to the Name Panel! There are '..count..' Names')
-        textpanel:RequestFocus()
-        end
-    end
-    
-
-    local label = vgui.Create( 'DLabel', panel )
-    label:SetText('Type a name here and press enter to register it!')
-    label:Dock(BOTTOM)
-
-    end
-
-
-    end)
-
-end
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-local function GetAttachmentPoint(self,pointtype)
+function GetAttachmentPoint(self,pointtype)
 
     if pointtype == "hand" then
   
@@ -3154,7 +3012,7 @@ function TakeZetaViewShot(self)
         local path = 'zetaplayerdata/zeta_viewshots/'..self:GetNW2String('zeta_name','Zeta Player')..'_'..game.GetMap()..'_'..tostring(math.random(1,100000))..'.png'
         
         
-            file.Write(path,viewshot)
+            ZetaFileWrite(path,viewshot)
             hook.Remove('CalcView','zetaviewshotcalc'..self:EntIndex())
             hook.Remove('PreDrawEffects','zetaviewshot'..self:EntIndex())
         
@@ -3170,6 +3028,24 @@ end
 
 
 if ( CLIENT )  then
+
+
+    net.Receive("zeta_flashbang_emitflash", function()
+        local index = net.ReadInt(32)
+        local emitPos = net.ReadVector()
+        
+        local dlight = DynamicLight(index)
+        if dlight then
+            dlight.pos = emitPos
+            dlight.r = 255
+            dlight.g = 255
+            dlight.b = 255
+            dlight.brightness = 2
+            dlight.Decay = 768
+            dlight.Size = 400
+            dlight.DieTime = CurTime() + 0.1
+        end
+    end)
 
     net.Receive("zeta_changegetplayername",function()
         local ent = net.ReadEntity()
@@ -3210,20 +3086,25 @@ if ( CLIENT )  then
     }
 
     local function ZetaTap(ent)
-       
-        local lastpos = Vector(0,0,0)
-        local vectoradd = VectorRand(0,1300)
+        local lastpos = Vector(0, 0, 0)
+        local vectoradd = VectorRand(0, 1300)
         local frac = 0
         local add = 0.01
-        hook.Add("KeyPress","zetaeyetap_abort",function(ply,key)
+        local thirdPerson = false
+        local followEnt = ent
+        local isCorpse = false
+    
+        hook.Add("KeyPress", "zetaeyetap_abort", function(ply, key)
             if key == IN_JUMP then
-                hook.Remove("KeyPress","zetaeyetap_abort")
-                hook.Remove("CalcView","zetaeyeTap_Calcview")
+                hook.Remove("KeyPress", "zetaeyetap_abort")
+                hook.Remove("CalcView", "zetaeyeTap_Calcview")
+                return
             end
+            if key == IN_ATTACK2 then thirdPerson = !thirdPerson end
         end)
-        hook.Add("CalcView","zetaeyeTap_Calcview",function(ply,origin,angles,fov,znear,zfar)
-
-            if !IsValid(ent) then
+    
+        hook.Add("CalcView", "zetaeyeTap_Calcview", function(ply, origin, angles, fov, znear, zfar)
+            if !IsValid(followEnt) or isCorpse and !GetConVar("zetaplayer_eyetap_followcorpse"):GetBool() then
                 if add > 0 then
                     frac = frac + add
                     add = add - 0.00007
@@ -3233,6 +3114,7 @@ if ( CLIENT )  then
                 eyetaptrace.endpos = targetpos
                 local trace = util.TraceLine(eyetaptrace)
                 local lerp = LerpVector(frac,lastpos,trace.HitPos)
+                
                 local returns = {
                     origin = lerp,
                     angles = (lastpos-lerp):Angle(),
@@ -3241,18 +3123,36 @@ if ( CLIENT )  then
                     zfar = zfar,
                     drawviewer = true
                 }
-
                 return returns
             end
-
-            
-            local attach = ent:GetAttachmentPoint("eyes")
-            attach.Ang.z = (GetConVar("zetaplayer_eyetap_preventtilting"):GetBool() and 0 or attach.Ang.z)
-            lastpos = attach.Pos or ent:GetPos()
-
+    
+            local ragdoll = followEnt:GetNW2Entity("zeta_ragdoll", NULL)
+            if ragdoll != NULL then 
+                followEnt = ragdoll
+                isCorpse = true
+            end
+    
+            local camPos = (isCorpse and followEnt:GetPos() + followEnt:GetUp()*16 or followEnt:GetCenteroid() + followEnt:GetUp()*32)
+            local camAng = ply:EyeAngles()
+    
+            eyetaptrace.start = camPos
+            eyetaptrace.endpos = camPos + camAng:Forward() * -128
+            eyetaptrace.filter = {ply, followEnt}
+            local wallCheck = util.TraceLine(eyetaptrace)
+            camPos = camPos + camAng:Forward() * (-128 * (wallCheck.Fraction - 0.15))
+    
+            if !thirdPerson and !isCorpse then
+                local attach = followEnt:GetAttachmentPoint("eyes")
+                attach.Ang.z = (GetConVar("zetaplayer_eyetap_preventtilting"):GetBool() and 0 or attach.Ang.z)
+    
+                camPos = attach.Pos
+                camAng = attach.Ang
+            end
+            lastpos = camPos or followEnt:GetPos()
+    
             local returns = {
-                origin = attach.Pos,
-                angles = attach.Ang,
+                origin = camPos,
+                angles = camAng,
                 fov = fov,
                 znear = znear,
                 zfar = zfar,
@@ -3260,10 +3160,6 @@ if ( CLIENT )  then
             }
             return returns
         end)
-    
-
-
-    
     end
 
     net.Receive("zetaplayer_eyetap",function()
@@ -3292,8 +3188,7 @@ if ( CLIENT )  then
     net.Receive("zeta_chatsend", function()
         local zetaname = net.ReadString()
         local text = net.ReadString()
-        local rank = net.ReadString()
-        local mdlcolor = net.ReadColor(false)
+        local color = net.ReadColor(false)
         local isdead = net.ReadBool()
         local pos = net.ReadVector()
 
@@ -3302,40 +3197,13 @@ if ( CLIENT )  then
             return
         end
 
-        local r,g,b = GetConVar('zetaplayer_displaynameRed'):GetInt(),GetConVar('zetaplayer_displaynameGreen'):GetInt(),GetConVar('zetaplayer_displaynameBlue'):GetInt()
-        textchatcolor.r = r
-        textchatcolor.g = g
-        textchatcolor.b = b
-
-        if mdlcolor and mdlcolor != Color(0,0,0) then
-            textchatcolor.r = mdlcolor.r
-            textchatcolor.g = mdlcolor.g
-            textchatcolor.b = mdlcolor.b
-        end
-
-        if rank == "friend" then
-            r,g,b = GetConVar('zetaplayer_friendnamecolorR'):GetInt(),GetConVar('zetaplayer_friendnamecolorG'):GetInt(),GetConVar('zetaplayer_friendnamecolorB'):GetInt()
-            textchatcolor.r = r
-            textchatcolor.g = g
-            textchatcolor.b = b
-        elseif rank == "admin" then
-            r,g,b = GetConVar('zetaplayer_admindisplaynameRed'):GetInt(),GetConVar('zetaplayer_admindisplaynameGreen'):GetInt(),GetConVar('zetaplayer_admindisplaynameBlue'):GetInt()
-            textchatcolor.r = r
-            textchatcolor.g = g
-            textchatcolor.b = b
-        elseif rank == "team" then
-            r,g,b = GetConVar('zetaplayer_teamcolorRed'):GetInt(),GetConVar('zetaplayer_teamcolorGreen'):GetInt(),GetConVar('zetaplayer_teamcolorBlue'):GetInt()
-            textchatcolor.r = r
-            textchatcolor.g = g
-            textchatcolor.b = b
-        end
         local deadadd = ""
 
         if isdead then
             deadadd = "*DEAD* "
         end
         
-        chat.AddText(Color(177,0,0),deadadd,textchatcolor,zetaname,color_white,":".." "..text)
+        chat.AddText(Color(177,0,0),deadadd,color,zetaname,color_white,":".." "..text)
     end)
 
 
@@ -3591,11 +3459,6 @@ end
 
 if ( CLIENT ) then
     concommand.Add('zetaplayer_cleanviewshotfolder',CleanViewShotFolder,nil,'Cleans the View Shot Folder')
-    concommand.Add('zetaplayer_opennamepanel',OpenNameRegisterPanel,nil,'Opens the Name Register Panel')
-    concommand.Add('zetaplayer_openproppanel',OpenPropPanel,nil,'Opens the Prop Register Panel')
-    concommand.Add('zetaplayer_openentpanel',OpenEntPanel,nil,'Opens the Entity Register Panel')
-    concommand.Add('zetaplayer_opennpcpanel',OpenNPCPanel,nil,'Opens the NPC Register Panel')
-    concommand.Add('zetaplayer_openprofilepanel',OpenProfilePanel,nil,'Opens the Profile Panel')
 end
 
 
@@ -3642,8 +3505,12 @@ concommand.Add( 'zetaplayer_cacheallmodels', PrecacheAllPlayermodels, nil, "Cach
 concommand.Add( 'zetaplayer_createserverjunk', CreateServerJunk, nil, "Spawn junk all over the map")
 concommand.Add( 'zetaplayer_setplayerbirthday', SetPlayerBirthday, nil, "Enter your birthday here. EXAMPLE: December 5")
 
+concommand.Add( 'zetaplayer_force_targetzeta', ZetasTargetOtherZetas, nil, "Makes all nearby Zetas attack other Zetas")
+
 
 if SERVER then -- Cache all these values 
+
+    _ZetaCheckCurrentDate()
     
     _SERVERTEXTDATA = util.JSONToTable(file.Read("zetaplayerdata/textchatdata.json","DATA"))
 
@@ -3669,18 +3536,20 @@ if SERVER then -- Cache all these values
     _SERVERPLAYERMODELS = table.ClearKeys( _SERVERPLAYERMODELS )
 
 
-    local json = file.Read("zetaplayerdata/blockedplayermodels.json","DATA")
-    local blockedmdls = util.JSONToTable(json)
+    if GetConVar("zetaplayer_enableblockmodels"):GetBool() then
+        local json = file.Read("zetaplayerdata/blockedplayermodels.json","DATA")
+        local blockedmdls = util.JSONToTable(json)
+        if #blockedmdls > 0 then
+            for k,v in ipairs(blockedmdls) do
+                if !util.IsValidModel(v) then continue end
 
-    if #blockedmdls > 0 then
-        for k,v in ipairs(blockedmdls) do
-            if !util.IsValidModel(v) then continue end
-            local key = table.KeyFromValue( _SERVERPLAYERMODELS, v )
-            
-            table.remove(_SERVERPLAYERMODELS,key)
+                local key = table.KeyFromValue( _SERVERPLAYERMODELS, v )
+
+                table.remove(_SERVERPLAYERMODELS,key)
+            end
         end
     end
-
+    
     
     _SERVERDEFAULTMDLS = {
         'models/player/alyx.mdl',
@@ -3745,15 +3614,149 @@ if SERVER then -- Cache all these values
 
     _ZETANAVMESH = {}
 
-    local navmes = navmesh.GetAllNavAreas()
-
-    for k,nav in ipairs(navmes) do
-        if IsValid(nav) and nav:GetSizeX() > 75 or nav:GetSizeY() > 75 then
-            table.insert(_ZETANAVMESH,nav)
+    timer.Simple(0, function()
+        for _, v in ipairs(navmesh.GetAllNavAreas()) do
+            if IsValid(v) and (v:GetSizeX() > 75 or v:GetSizeY() > 75) then
+                _ZETANAVMESH[#_ZETANAVMESH+1] = v
+            end
         end
-    end
+    end)
+    
 end
 
+_ZetaWeaponKillIcons = {
+    ["CROWBAR"] = "weapon_crowbar",
+    ["STUNSTICK"] = "weapon_stunstick",
+    ["PISTOL"] = "weapon_pistol",
+    ["REVOLVER"] = "weapon_357",
+    ["SMG"] = "weapon_smg1",
+    ["AR2"] = "weapon_ar2",
+    ["SHOTGUN"] = "weapon_shotgun",
+    ["CROSSBOW"] = "crossbow_bolt",
+    ["GRENADE"] = "npc_grenade_frag",
+    ["RPG"] = "rpg_missile",
+    ["LIGHTSABER"] = "weapon_lightsaber",
+    ["ZOMBIECLAWS"] = "zetaweapon_zombieclaws",
+    ["THEKLEINER"] = "zetaweapon_kleiner",
+    ["NYANGUN"] = "weapon_nyangun",
+
+    ["SG552"] = "zetaweapon_css_sg552",
+    ["USPSILENCED"] = "zetaweapon_css_usp",
+    ["XM1014"] = "zetaweapon_css_xm1014",
+    ["AK47"] = "zetaweapon_css_ak47",
+    ["GLOCK_SEMI"] = "zetaweapon_css_glock",
+    ["GLOCK_AUTO"] = "zetaweapon_css_glock",
+    ["AUG"] = "zetaweapon_css_aug",
+    ["DEAGLE"] = "zetaweapon_css_deagle",
+    ["KNIFE"] = "zetaweapon_css_knife",
+    ["MAC10"] = "zetaweapon_css_mac10",
+    ["P90"] = "zetaweapon_css_p90",
+    ["SCOUT"] = "zetaweapon_css_scout",
+    ["UMP45"] = "zetaweapon_css_ump45",
+    ["AWP"] = "zetaweapon_css_awp",
+    ["FAMAS"] = "zetaweapon_css_famas",
+    ["FIVESEVEN"] = "zetaweapon_css_fiveseven",
+    ["M4A1"] = "zetaweapon_css_m4a1",
+    ["MP5"] = "zetaweapon_css_mp5",
+    ["MACHINEGUN"] = "zetaweapon_css_m249",
+    ["GALIL"] = "zetaweapon_css_galil",
+    ["M3"] = "zetaweapon_css_m3",
+    ["TMP"] = "zetaweapon_css_tmp",
+    ["DUALELITES"] = "zetaweapon_css_elites",
+    ["FLASHGRENADE"] = "zetaweapon_css_flashbang",
+    ["SMOKEGRENADE"] = "zetaweapon_css_smokegrenade",
+
+    ["L4D_MELEE_TONFA"] = "zetaweapon_l4d2_melee_tonfa",
+    ["L4D_MELEE_GUITAR"] = "zetaweapon_l4d2_melee_guitar",
+    ["L4D_MELEE_GOLFCLUB"] = "zetaweapon_l4d2_melee_golfclub",
+    ["L4D_MELEE_FIREAXE"] = "zetaweapon_l4d2_melee_fireaxe",
+    ["L4D_PISTOL_M1911"] = "zetaweapon_l4d2_pistol_m1911",
+    ["L4D_PISTOL_P220"] = "zetaweapon_l4d2_pistol_p220",
+    ["L4D_PISTOL_GLOCK26"] = "zetaweapon_l4d2_pistol_glock",
+    ["L4D_PISTOL_MAGNUM"] = "zetaweapon_l4d2_pistol_magnum",
+    ["L4D_SMG"] = "zetaweapon_l4d2_smg",
+    ["L4D_SMG_SILENCED"] = "zetaweapon_l4d2_smg_silenced",
+    ["L4D_SHOTGUN_PUMP"] = "zetaweapon_l4d2_pumpshotgun",
+    ["L4D_SHOTGUN_CHROME"] = "zetaweapon_l4d2_shotgun_chrome",
+	["L4D_SHOTGUN_SPAS12"] = "zetaweapon_l4d2_shotgun_spas",
+	["L4D_SHOTGUN_AUTOSHOT"] = "zetaweapon_l4d2_autoshotgun",
+    ["L4D_RIFLE_M16"] = "zetaweapon_l4d2_rifle",
+    ["L4D_RIFLE_AK47"] = "zetaweapon_l4d2_rifle_ak47",
+    ["L4D_RIFLE_SCARL"] = "zetaweapon_l4d2_rifle_desert",
+    ["L4D_RIFLE_RUGER14"] = "zetaweapon_l4d2_hunting_rifle",
+    ["L4D_RIFLE_MILITARYS"] = "zetaweapon_l4d2_sniper_military",
+    ["L4D_SPECIAL_M60"] = "zetaweapon_l4d2_rifle_m60",
+    ["L4D_SPECIAL_GL_IMPACT"] = "zetaweapon_l4d2_grenade_launcher",
+    ["L4D_SPECIAL_GL_DELAYED"] = "zetaweapon_l4d2_grenade_launcher",
+    ["L4D_SPECIAL_CHAINSAW"] = "zetaweapon_l4d2_melee_chainsaw",
+
+    ["DODS_US_AMERIKNIFE"] = "zetaweapon_dod_knife",
+    ["DODS_US_COLT45"] = "zetaweapon_dod_colt1911",
+    ["DODS_US_M1CARBINE"] = "zetaweapon_dod_m1carbine",
+    ["DODS_US_THOMPSON"] = "zetaweapon_dod_thompspn",
+    ["DODS_US_GARAND"] = "zetaweapon_dod_garand",
+    ["DODS_US_BAR"] = "zetaweapon_dod_bar",
+    ["DODS_US_SPRINGFIELD"] = "zetaweapon_dod_springfield",
+    ["DODS_US_30CAL"] = "zetaweapon_dod_30cal",
+    ["DODS_US_BAZOOKA"] = "zetaweapon_dod_bazooka",
+    ["DODS_AXIS_SPADE"] = "zetaweapon_dod_spade",
+    ["DODS_AXIS_P38"] = "zetaweapon_dod_p38",
+    ["DODS_AXIS_C96"] = "zetaweapon_dod_c96",
+    ["DODS_AXIS_MP40"] = "zetaweapon_dod_mp40",
+    ["DODS_AXIS_MP44"] = "zetaweapon_dod_mp44",
+    ["DODS_AXIS_KAR98k"] = "zetaweapon_dod_kar98",
+    ["DODS_AXIS_KAR98KSNIPER"] = "zetaweapon_dod_kar98s", 
+    ["DODS_AXIS_MG42"] = "zetaweapon_dod_mg42",
+    ["DODS_AXIS_PANZERSCHRECK"] = "zetaweapon_dod_panzerschreck",
+
+    ["HL1GLOCK"] = "zetaweapon_hl1_glock",
+    ["HL1357"] = "zetaweapon_hl1_revolver",
+    ["HL1SMG"] = "zetaweapon_hl1_smg",
+    ["HL1SPAS"] = "zetaweapon_hl1_shotgun",
+
+    ["BAT"] = "zetaweapon_tf2_bat",
+    ["WRENCH"] = "zetaweapon_tf2_wrench",
+    ["TF2PISTOL"] = "zetaweapon_tf2_pistol",
+    ["TF2SHOTGUN"] = "zetaweapon_tf2_shotgun",
+    ["SNIPERSMG"] = "zetaweapon_tf2_smg",
+    ["TF2SNIPER"] = "zetaweapon_tf2_sniperrifle",
+    ["SCATTERGUN"] = "zetaweapon_tf2_scattergun",
+    ["FORCEOFNATURE"] = "zetaweapon_tf2_forceofnature",
+    ["GRENADELAUNCHER"] = "zetaweapon_tf2_grenadelauncher",
+    ["FLAMETHROWER"] = "zetaweapon_tf2_flamethrower",
+    ["TF2_MINIGUN"] = "zetaweapon_tf2_minigun",
+
+    ["FIST"] = "zetaweapon_fists",
+    ["ALYXGUN"] = "zetaweapon_alyxgun",
+    ["ANNABELLE"] = "zetaweapon_annabelle",
+    ["HACKSMONITORS"] = "zetaweapon_hackmonitor",
+    ["VOLVER"] = "zetaweapon_volver",
+    ["IMPACTGRENADE"] = "npc_grenade_frag",
+    ["JPG"] = "zetaweapon_junklauncher",
+	["KATANA"] = "zetaweapon_katana",
+	["MEATHOOK"] = "zetaweapon_meathook",
+	["SHOVEL"] = "zetaweapon_shovel",
+	["PAN"] = "zetaweapon_l4d2_melee_frying_pan",
+    ["CARDOOR"] = "zetaweapon_cardoor",
+    ["LARGESIGN"] = "zetaweapon_largesign",
+
+    ["MP1_LEADPIPE"] = "weapon_mp1_leadpipe",
+    ["MP1_BASEBALLBAT"] = "weapon_mp1_baseballbat",
+    ["MP1_BERETTA"] = "weapon_mp1_beretta",
+    ["MP1_DUALBERETTAS"] = "weapon_mp1_berettadual",
+    ["MP1_DESERTEAGLE"] = "weapon_mp1_deserteagle",
+    ["MP1_INGRAM"] = "weapon_mp1_ingram",
+    ["MP1_DUALINGRAMS"] = "weapon_mp1_ingramdual",
+    ["MP1_MP5"] = "weapon_mp1_mp5",
+    ["MP1_SAWEDOFFSHOTGUN"] = "weapon_mp1_sawedshotgun",
+    ["MP1_PUMPSHOTGUN"] = "weapon_mp1_pumpshotgun",
+    ["MP1_COLTCOMMANDO"] = "weapon_mp1_coltcommando",
+    ["MP1_JACKHAMMER"] = "weapon_mp1_jackhammer",
+    ["MP1_SNIPERRIFLE"] = "weapon_mp1_sniperrifle",
+    ["MP1_M79"] = "weapon_mp1_m79",
+    ["MP1_COCKTAIL"] = "weapon_mp1_molotov",
+    ["MP1_GRENADE"] = "weapon_mp1_grenade",
+}
 
 _ZETANORMALSEATS = {
     ["models/nova/airboat_seat.mdl"] = true,
@@ -3767,6 +3770,12 @@ _ZETANORMALSEATS = {
     ["models/props_phx/carseat2.mdl"] = true,
     ["models/props_phx/carseat3.mdl"] = true,
 }
+
+_ZETASMOKEGRENADES = {}
+
+function _ZetaIsMinigameActive()
+    return GetGlobalBool("_ZetaKOTH_Gameactive", false ) or GetGlobalBool("_ZetaCTF_Gameactive", false ) or GetGlobalBool("_ZetaTDM_Gameactive",false)
+end
 
 
 
@@ -3801,3 +3810,63 @@ if gPoker and gPoker.betType then
         e:SetPot(e:GetPot() - a)
     end
 end
+
+_ZETATEAMS = {}
+    local teamData = util.JSONToTable(file.Read("zetaplayerdata/teams.json"))
+    if teamData then
+        for _, v in ipairs(teamData) do
+            local teamName = v[1]
+            local teamColor = (v[2] and v[2]:ToColor() or Color(255, 255, 100))
+            local teamIndex = (table.Count(_ZETATEAMS)+1)
+
+            if !_ZETATEAMS[teamName] then
+                _ZETATEAMS[teamName] = teamIndex
+                team.SetUp(teamIndex, teamName, teamColor, false)
+            end
+        end
+    end
+
+    if game.SinglePlayer() then
+        cvars.RemoveChangeCallback("zetaplayer_useteamsystem", "ZetaPlayers_PlayerZetaTeamColor2") 
+        cvars.AddChangeCallback("zetaplayer_useteamsystem", function(cvar, oldVal, newVal) 
+            local plyTeam = GetConVar("zetaplayer_playerteam"):GetString()
+            local newTeam = (tobool(newVal) == true and _ZETATEAMS[plyTeam]) and _ZETATEAMS[plyTeam] or 1001
+            if Entity(1):Team() != newTeam then Entity(1):SetTeam(newTeam) end
+        end, "ZetaPlayers_PlayerZetaTeamColor2")
+    end
+
+_ZETASPEAKINGLIMIT = 0 -- The amount of Zetas speaking
+_ZETATEXTSLOWCUR = 0
+_ZETACOUNT = 0
+
+if !file.Exists("zetaplayerdata/zetastats.json","DATA") then
+    ZetaFileWrite("zetaplayerdata/zetastats.json","[]")
+end
+
+if !file.Exists("zetaplayerdata/weapondata.dat","DATA") then
+    ZetaFileWrite("zetaplayerdata/weapondata.dat", util.Compress( "[]" ) )
+end
+
+concommand.Add("zetaplayer_resetweapondata",function() 
+    ZetaFileWrite("zetaplayerdata/weapondata.dat", util.Compress( "[]" ))
+    print("Weapon Data Reset")
+end)
+
+concommand.Add("zetaplayer_resetzetastats",function() 
+    ZetaFileWrite("zetaplayerdata/zetastats.json","[]")
+    print("Zeta Stats Reset")
+end)
+
+timer.Create("_ZetaTimeCounter",1,0,function()
+    if _ZETACOUNT > 0 then
+        local zetastats = file.Read("zetaplayerdata/zetastats.json")
+
+        if zetastats then
+            zetastats = util.JSONToTable(zetastats)
+
+            zetastats["timeplayed"] = zetastats["timeplayed"] and zetastats["timeplayed"]+1 or 1
+
+            ZetaFileWrite("zetaplayerdata/zetastats.json",util.TableToJSON(zetastats,true))
+        end
+    end
+end)

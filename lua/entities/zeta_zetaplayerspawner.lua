@@ -9,6 +9,13 @@ local zetamath = {}
 
 zetamath.random = math.random
 
+local accuracylevels = {
+  [1] = 0.4,
+  [2] = 0.25,
+  [3] = 0.15,
+  [4] = 0
+}
+
 function ENT:Initialize()
   if ( CLIENT ) then return end
     self:SetMaterial('null')
@@ -30,12 +37,23 @@ function ENT:Initialize()
 
     self.Kills = 0
     self.Deaths = 0
+
+    self.Friends = {}
     
 
-    
+    local accuracy = GetConVar("zetaplayer_combataccuracylevel"):GetInt()
 
-    self.PhysgunColor = Color(zetamath.random(0,255),zetamath.random(0,255),zetamath.random(0,255)) -- Random physgun color. How do you even change only the glow color of the model?
-    self.PlayermodelColor = Vector( zetamath.random(1,255) / 255, zetamath.random(1,255) / 255, zetamath.random(1,255) / 255 )
+    if accuracy != 0 then
+        self.Accuracy = accuracylevels[accuracy]
+    else
+        self.Accuracy = accuracylevels[zetamath.random(4)]
+    end
+
+    local col = GetConVar('zetaplayer_randomplayermodelcolor'):GetBool() and Vector(zetamath.random(255)/255, zetamath.random(255)/255, zetamath.random(255)/255) or Vector( 1, 1, 1 )
+
+
+    self.PhysgunColor = Color(zetamath.random(0,255),zetamath.random(0,255),zetamath.random(0,255)) -- Random physgun color.
+    self.PlayermodelColor = col
 
     local VoicePitch = (GetConVar('zetaplayer_differentvoicepitch'):GetInt() == 1) and zetamath.random(GetConVar("zetaplayer_voicepitchmin"):GetInt(), GetConVar("zetaplayer_voicepitchmax"):GetInt()) or 100
 
@@ -180,16 +198,16 @@ function ENT:Initialize()
             TextChance = 30
             self.Personality = "Berserk"
         elseif personalityCvar == 'custom' then 
-            BuildChance = GetConVar('zetaplayer_buildchance'):GetInt()
-            CombatChance = GetConVar('zetaplayer_combatchance'):GetInt()
-            ToolChance = GetConVar('zetaplayer_toolchance'):GetInt()
-            PhysgunChance = GetConVar('zetaplayer_physgunchance'):GetInt()
-            DisrespectChance = GetConVar('zetaplayer_disrespectchance'):GetInt()
-            WatchMediaPlayerChance = GetConVar('zetaplayer_watchmediaplayerchance'):GetInt()
-            FriendlyChance = GetConVar('zetaplayer_friendlychance'):GetInt()
-            VoiceChance = GetConVar('zetaplayer_voicechance'):GetInt()
-            VehicleChance = GetConVar('zetaplayer_vehiclechance'):GetInt()
-            TextChance = GetConVar('zetaplayer_textchance'):GetInt()
+            BuildChance = GetConVar('zetaplayer_'..naturalPrefix..'buildchance'):GetInt()
+            CombatChance = GetConVar('zetaplayer_'..naturalPrefix..'combatchance'):GetInt()
+            ToolChance = GetConVar('zetaplayer_'..naturalPrefix..'toolchance'):GetInt()
+            PhysgunChance = GetConVar('zetaplayer_'..naturalPrefix..'physgunchance'):GetInt()
+            DisrespectChance = GetConVar('zetaplayer_'..naturalPrefix..'disrespectchance'):GetInt()
+            WatchMediaPlayerChance = GetConVar('zetaplayer_'..naturalPrefix..'watchmediaplayerchance'):GetInt()
+            FriendlyChance = GetConVar('zetaplayer_'..naturalPrefix..'friendlychance'):GetInt()
+            VoiceChance = GetConVar('zetaplayer_'..naturalPrefix..'voicechance'):GetInt()
+            VehicleChance = GetConVar('zetaplayer_'..naturalPrefix..'vehiclechance'):GetInt()
+            TextChance = GetConVar('zetaplayer_'..naturalPrefix..'textchance'):GetInt()
             self.Personality = "Custom"
         end
 
@@ -217,35 +235,39 @@ function ENT:Initialize()
             self.zetaname = k
             break
         end
-        self.permfriend = false
 
-        if GetConVar("zetaplayer_permamentfriendalwaysspawn"):GetInt() == 1 and GetConVar("zetaplayer_permamentfriend"):GetString() != "" and game.SinglePlayer() and IsValid(Entity(1)) and GetConVar('zetaplayer_enablefriend'):GetInt() == 1 then
-          local exists = false
-          for k,v in ipairs(ents.FindByClass("npc_zetaplayer")) do
-              if v.zetaname == GetConVar("zetaplayer_permamentfriend"):GetString() then
-                  exists = true
+
+        if GetConVar("zetaplayer_permamentfriendalwaysspawn"):GetInt() == 1 and game.SinglePlayer() and IsValid(Entity(1)) and GetConVar('zetaplayer_enablefriend'):GetInt() == 1 then
+          local zetas = ents.FindByClass('npc_zetaplayer')
+          local spawners = ents.FindByClass('zeta_zetaplayerspawner')
+          local permanentfriends = ZetaGetPermanentFriends()
+          local friendtbl = {}
+
+          for k,v in ipairs(permanentfriends) do
+              friendtbl[v] = true
+          end
+
+          for k,v in ipairs(zetas) do
+              if friendtbl[v.zetaname] then friendtbl[v.zetaname] = nil end
+          end
+      
+          for k,v in ipairs(spawners) do
+              if v != self and friendtbl[v.zetaname] then friendtbl[v.zetaname] = nil end
+          end
+
+          if table.Count(friendtbl) > 0 then
+              for k,v in RandomPairs(friendtbl) do
+                  self.zetaname = k
                   break
               end
-          end
-
-          for k,v in ipairs(ents.FindByClass("zeta_zetaplayerspawner")) do
-            if v.permfriend then
-                exists = true
-                break
-            end
-        end
-
-          if !exists then
-            self.zetaname = GetConVar("zetaplayer_permamentfriend"):GetString()
-            self.permfriend = true
+              self:SetNW2String('zeta_name', self.zetaname)
           end
       end
-        
+
         self.zetaTeam = nil
         local zetateamdata 
         if GetConVar('zetaplayer_useteamsystem'):GetInt() == 1 then
-            local teams = file.Read('zetaplayerdata/teams.json','DATA')
-            local decoded = util.JSONToTable(teams)
+           local decoded = self:GetTeamSpawnTeams()
             
             
             for k,v in RandomPairs(decoded) do
@@ -261,6 +283,14 @@ function ENT:Initialize()
             end
 
             if GetConVar('zetaplayer_overrideteam'):GetString() != '' then
+
+              for k, v in ipairs(decoded) do
+                if v[1] == GetConVar('zetaplayer_overrideteam'):GetString() then
+                  zetateamdata = v
+                  break
+                end
+              end
+
               self.zetaTeam = GetConVar('zetaplayer_overrideteam'):GetString()
             end
 
@@ -319,10 +349,37 @@ function ENT:Initialize()
       end
 
 
-      self.CustomSpawnWeapon = self.permfriend and GetConVar("zetaplayer_friendspawnweapon"):GetString() or !self.IsNatural and GetConVar("zetaplayer_spawnweapon"):GetString() or self.IsNatural and self.NaturalWeapon
+      self.CustomSpawnWeapon = !self.IsNatural and GetConVar("zetaplayer_spawnweapon"):GetString() or self.IsNatural and self.NaturalWeapon
+
+      if self.SpawnOVERRIDE then
+        self.mdl = self.SpawnOVERRIDE.model or self.mdl
+        self.zetaname = self.SpawnOVERRIDE.name or self.zetaname
+        self.zetaTeam = self.SpawnOVERRIDE.zetateam or self.zetaTeam
+        self.VoicePack = self.SpawnOVERRIDE.vp or self.VoicePack
+        self.ProfilePicture = self.SpawnOVERRIDE.pfp or self.ProfilePicture
+        self.Accuracy = self.SpawnOVERRIDE.accuratelevel or self.Accuracy
+        local personalitysettings = self.SpawnOVERRIDE.personality
+        BuildChance = personalitysettings.build or BuildChance
+        CombatChance = personalitysettings.combat or CombatChance
+        ToolChance = personalitysettings.tool or ToolChance
+        PhysgunChance = personalitysettings.physgun or PhysgunChance
+        DisrespectChance = personalitysettings.disre or DisrespectChance
+        WatchMediaPlayerChance = personalitysettings.media or WatchMediaPlayerChance
+        FriendlyChance = personalitysettings.friendly or FriendlyChance
+        VoiceChance = personalitysettings.voice or VoiceChance
+        VehicleChance = personalitysettings.vehicle or VehicleChance
+        TextChance = personalitysettings.text or TextChance
+  
+        VoicePitch = personalitysettings.voicepitch or VoicePitch
+        Strictness = personalitysettings.strictness or Strictness
+        
+        self.PhysgunColor = self.SpawnOVERRIDE.physgunclr or self.PhysgunColor
+        self.PlayermodelColor = self.SpawnOVERRIDE.playerclr or self.PlayermodelColor
+
+      end
 
       
-      if GetConVar('zetaplayer_useprofilesystem'):GetBool() and !self.permfriend then
+      if GetConVar('zetaplayer_useprofilesystem'):GetBool() then
         local json = file.Read('zetaplayerdata/profiles.json','DATA')
         local decoded = util.JSONToTable(json)
     
@@ -334,7 +391,7 @@ function ENT:Initialize()
             if v != self and v.zetaname and decoded[v.zetaname] then decoded[v.zetaname] = nil end
         end
         for _, v in ipairs(ents.FindByClass('zeta_zetaplayerspawner')) do
-            if v.zetaname and decoded[v.zetaname] then decoded[v.zetaname] = nil end
+            if v != self and v.zetaname and decoded[v.zetaname] then decoded[v.zetaname] = nil end
         end
     
         local searchProfile = nil
@@ -345,7 +402,7 @@ function ENT:Initialize()
     
         local name, profileData
         if !searchProfile then
-            if GetConVar("zetaplayer_profilesystemonly"):GetBool() and !table.IsEmpty(decoded) then
+            if ( GetConVar("zetaplayer_profilesystemonly"):GetBool() or math.random( 1, 100 ) < GetConVar("zetaplayer_profileusechance"):GetInt() ) and !table.IsEmpty(decoded) then
                 for k, v in RandomPairs(decoded) do
                     name = k
                     profileData = v
@@ -394,18 +451,71 @@ function ENT:Initialize()
                 TextChance = tonumber(personality['text']) or TextChance
                 Personality = "PROFILE"
             end
+
+            self.IsAdmin = false
+            self.ShouldSpawnAdmin = false
         
             if profileData["admindata"] then
                 self.ShouldSpawnAdmin = profileData["admindata"]["isadmin"] or self.IsAdmin
                 Strictness = profileData["admindata"]["strictness"] or Strictness
             end
+
             
-            self.IsMingebag = profileData["mingebag"]
+
+            local overrideTeam = profileData["teamoverride"]
+                if overrideTeam and GetConVar('zetaplayer_useteamsystem'):GetBool() then
+                    local teams = file.Read('zetaplayerdata/teams.json','DATA')
+                    decoded = util.JSONToTable(teams)
+                    
+                    local teamData = nil
+                    for i=1, #decoded do
+                        if decoded[i][1] != overrideTeam then continue end
+                        teamData = decoded[i]
+                        break
+                    end
+                    if teamData then
+                        self.zetaTeam = teamData[1]
+                        self:SetNW2String('zeta_team', self.zetaTeam or "")
+
+                        if teamData[2] then
+                            self.PlayermodelColor = teamData[2]
+                            self.TeamColor = teamData[2]:ToColor()
+                            self:SetNW2Vector('zeta_modelcolor', teamData[2])   
+                            self:SetNW2Vector('zeta_teamcolor', teamData[2])   
+                        end
+
+                        if teamData.teammodel then
+                            spawnmdl = teamData.teammodel
+                        end
+
+                        local spawns = self:GetTeamSpawns()
+                        if #spawns > 0 then
+                            local spawn = spawns[zetamath.random(#spawns)]
+                            if IsValid(spawn) then self:SetPos(spawn:GetPos()) end
+                        end
+                    end
+                end
+            
+            self.IsMingebag = profileData["mingebag"] or false
             self.VoicePack = profileData["voicepack"] or self.VoicePack
             VoicePitch = profileData["voicepitch"] or VoicePitch
             self.CustomSpawnWeapon = profileData["weapon"] or nil
 
             self.nodisconnect = profileData["nodisconnect"]
+            self.permfriend = profileData["permafriend"]
+            local level = profileData["accuracylevel"] or self.Accuracy
+
+            if level != 0 then
+                self.Accuracy = accuracylevels[level]
+            else
+                self.Accuracy = accuracylevels[zetamath.random(4)]
+            end
+
+
+            self.profilebodygroups = profileData["bodygroups"] or nil
+            self.profileSkin = profileData["skin"] or nil
+
+            self.UsingaProfile = true
             
             self.PhysgunColor = profileData["physguncolor"] or self.PhysgunColor
             self.PlayermodelColor = profileData["playermodelcolor"] or self.PlayermodelColor
@@ -458,6 +568,7 @@ function ENT:Initialize()
 
 
 
+
     local spawns = self:GetTeamSpawns()
     if #spawns > 0 then
         local spawn = spawns[math.random(#spawns)]
@@ -465,6 +576,9 @@ function ENT:Initialize()
             self:SetPos(spawn:GetPos())
         end
     end
+
+    self.BodygroupData = self.profilebodygroups or nil
+    self.SkinData = self.profileSkin or nil
 
 
 
@@ -488,12 +602,15 @@ function ENT:Initialize()
       if !isvector(self.PhysgunColor) then
         self.PhysgunColor:ToVector()
       end
-      ZetaPlayer_ApplySpawnOverridedata(zeta,self.zetaname,self.mdl,self.Personalitysettings,self.ProfilePicture,self.VoicePack,self.zetaTeam)
-      zeta:SetNW2Vector('zeta_coloroverride', self.PhysgunColor)
+      ZetaPlayer_ApplySpawnOverridedata(zeta,self.zetaname,self.mdl,self.Personalitysettings,self.ProfilePicture,self.VoicePack,self.zetaTeam,self.Accuracy,self.PhysgunColor,self.PlayermodelColor)
+      zeta:SetNW2Vector('zeta_physcolor', self.PhysgunColor)
       zeta:SetNW2Vector('zeta_playercoloroverride',self.PlayermodelColor)
       zeta.IsMingebag = self.IsMingebag
       zeta.IsAdmin = self.IsAdmin
       zeta.Permafriend = self.permfriend
+      zeta.SkinData = self.SkinData
+      zeta.UsingaProfile = self.UsingaProfile
+		  zeta.BodygroupData = self.BodygroupData
       zeta.ShouldSpawnAdmin = self.ShouldSpawnAdmin
       zeta.ZetaSpawnerID = self:GetCreationID()
       zeta.Spawner = self
@@ -525,6 +642,10 @@ function ENT:Initialize()
     zeta:Spawn()
 
     timer.Simple(0,function()
+
+      if self.permfriend and GetConVar('zetaplayer_enablefriend'):GetInt() == 1 then
+        self.SpawnedZeta:AddFriend(Entity(1),true)
+      end
       zeta.Deaths = self.Deaths
       zeta:SetNW2Int("zeta_deaths",self.Deaths)
       zeta.Kills = self.Kills
@@ -537,11 +658,24 @@ function ENT:Initialize()
         zeta.MaxArmor = self.MaxArmor
         zeta.CurrentArmor = self.OverrideArmor
       end
+
+      for k, v in pairs( self.Friends ) do
+        if IsValid( v ) then
+          self.SpawnedZeta:AddFriend( v, true )
+        end
+      end
+
+
     end)
 
 
-    self.BodygroupData = {}
-    self.SkinData = zeta:GetSkin()
+
+    self.BodygroupData = self.BodygroupData or {}
+
+
+
+
+    self.SkinData = self.SkinData or zeta:GetSkin()
 
     local bodygroups = zeta:GetBodyGroups()
     for i = 1, #bodygroups do
@@ -573,7 +707,15 @@ function ENT:Initialize()
 
 
 
+  local zetastats = file.Read("zetaplayerdata/zetastats.json")
 
+  if zetastats then
+      zetastats = util.JSONToTable(zetastats)
+
+      zetastats["connectcount"] = zetastats["connectcount"] and zetastats["connectcount"]+1 or 1
+
+      ZetaFileWrite("zetaplayerdata/zetastats.json",util.TableToJSON(zetastats,true))
+  end
 
 
 
@@ -597,6 +739,9 @@ function ENT:Initialize()
   if GetConVar("zetaplayer_allowtextchat"):GetBool() and GetConVar("zetaplayer_connectlines"):GetBool() and math.random(1,3) == 1 then
     self.SpawnedZeta:TypeMessage("connect")
   end
+
+
+
 
 end
 
@@ -626,16 +771,19 @@ function ENT:Think()
     end
 
 	elseif (CurTime() - self.RespawnTime) >= GetConVar('zetaplayer_zetaspawnerrespawntime'):GetFloat() then
+
+
 		local zeta = ents.Create('npc_zetaplayer')
 		self:DeleteOnRemove(zeta)
-		zeta:SetPos(self:GetPos())
+
+		zeta:SetPos( self:GetPos() )
 		zeta:SetAngles(Angle(0,zetamath.random(0,360,0),0))
 		if GetConVar("zetaplayer_zetaspawnersaveidentity"):GetInt() == 1 or self.IsNatural then 
       if !isvector(self.PhysgunColor) then
         self.PhysgunColor:ToVector()
       end
-		  ZetaPlayer_ApplySpawnOverridedata(zeta,self.zetaname,self.mdl,self.Personalitysettings,self.ProfilePicture,self.VoicePack,self.zetaTeam)
-		  zeta:SetNW2Vector('zeta_coloroverride', self.PhysgunColor)
+		  ZetaPlayer_ApplySpawnOverridedata(zeta,self.zetaname,self.mdl,self.Personalitysettings,self.ProfilePicture,self.VoicePack,self.zetaTeam,self.Accuracy,self.PhysgunColor,self.PlayermodelColor)
+		  zeta:SetNW2Vector('zeta_physcolor', self.PhysgunColor)
 		  zeta:SetNW2Vector('zeta_playercoloroverride',self.PlayermodelColor)
 		  zeta.SkinData = self.SkinData
 		  zeta.BodygroupData = self.BodygroupData
@@ -644,6 +792,7 @@ function ENT:Think()
       zeta.Permafriend = self.permfriend
       zeta.ShouldSpawnAdmin = self.ShouldSpawnAdmin
       zeta.ZetaSpawnerID = self:GetCreationID()
+      zeta.UsingaProfile = self.UsingaProfile
       zeta.Spawner = self
       zeta.CustomSpawnWeapon = self.CustomSpawnWeapon or nil
       zeta.UseCustomIdle = self.UseCustomIdle 
@@ -676,7 +825,14 @@ function ENT:Think()
     self.SpawnedZeta = zeta
 
 		zeta:Spawn()
+
+
     timer.Simple(0,function()
+
+      if self.permfriend and GetConVar('zetaplayer_enablefriend'):GetInt() == 1 then
+        self.SpawnedZeta:AddFriend(Entity(1),true)
+      end
+
       zeta.Deaths = self.Deaths
       zeta:SetNW2Int("zeta_deaths",self.Deaths)
       zeta.Kills = self.Kills
@@ -689,6 +845,14 @@ function ENT:Think()
         zeta.MaxArmor = self.MaxArmor
         zeta.CurrentArmor = self.OverrideArmor
       end
+
+      for k, v in pairs( self.Friends ) do
+        if IsValid( v ) then
+          self.SpawnedZeta:AddFriend( v, true )
+        end
+      end
+
+      
     end)
 		local nearArea = navmesh.GetNearestNavArea(self:GetPos(), true, 10000, false, true, 0)
 		if IsValid(nearArea) then
@@ -719,6 +883,9 @@ function ENT:GetTeamSpawns()
   return spawns
 end
 
+function ENT:AddFriend(ent,forceadd)
+  self.SpawnedZeta:AddFriend(ent,forceadd)
+end
 
 function ENT:FindVoiceChatAvatar()
   local avatars = {}
@@ -770,6 +937,33 @@ end
     end
 
     return admins
+end
+
+function ENT:GetTeamSpawnTeams()
+
+  local teamspawnTEAMS = {}
+  local teams = file.Read('zetaplayerdata/teams.json','DATA')
+  local decoded = util.JSONToTable(teams)
+  local spawns = ents.FindByClass("zeta_teamspawnpoint")
+
+  if #spawns == 0 then
+    
+    return decoded
+  end
+
+  for k,teamtbl in ipairs(decoded) do
+
+    for i,l in ipairs(spawns) do
+
+      if teamtbl[1] == l.teamspawn then
+        teamspawnTEAMS[#teamspawnTEAMS+1] = teamtbl
+        break 
+      end
+
+    end
+
+  end
+  return teamspawnTEAMS
 end
   
   function ENT:IsInTeam(ent)

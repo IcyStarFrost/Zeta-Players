@@ -63,11 +63,14 @@ if SERVER then
             for k,v in RandomPairs(spawns) do
                 if v:GetTeamSpawn() == entteam then
                     ent:SetPos(v:GetPos())
+                    if IsValid(ent.Spawner) then
+                        ent.Spawner:SetPos(v:GetPos())
+                    end
                     break
                 end
             end
         elseif ent.IsZetaPlayer then
-            ent:SetPos(v.SpawnPos)
+            ent:SetPos(ent.SpawnPos)
         end
         
     end
@@ -94,19 +97,76 @@ if SERVER then
         end
 
         local files,dirs = file.Find("sound/"..dir,"GAME")
-        local replace = string.Replace((dir..files[math.random(#files)]),"*","")
+        local replace = dir
+        pcall( function() replace = string.Replace((dir..files[math.random(#files)]),"*","") end )
+
         return replace
     end
 
 
     function _ZetaEndKOTHGame()
-        if timer.Exists("_zetaKothTimerCountdown") then
-            timer.Adjust("_zetaKothTimerCountdown",0)
+        timer.Remove("_zetaKothTimerCountdown")
+        SetGlobalBool("_ZetaKOTH_Gameactive", false )
+        local winningteam,score,allteamscores = _ZetaGetKothWinner()
+        local col = ZetaGetTeamColor(winningteam)
+        local teamcolor = col and col:ToColor() or color_white
+
+        
+        if winningteam then
+            local points = (score > 1 and " points" or " point")
+            SendChatMessage(color_white,"[KOTH]",color_glacier," Time limit reached! ",teamcolor,winningteam,color_glacier," won with ",color_white,tostring(score),points)
+            
+
+            if GetConVar("zetaplayer_playerteam"):GetString() != "" and GetConVar("zetaplayer_playerteam"):GetString() != winningteam then
+                if GetConVar("zetaplayer_kothgameover"):GetString() != "" then
+                    sound.Play(GetSound(GetConVar("zetaplayer_kothgameover"):GetString()),Vector(0,0,0),0,100,1)
+                end
+            else
+                if GetConVar("zetaplayer_kothvictory"):GetString() != "" then
+                    sound.Play(GetSound(GetConVar("zetaplayer_kothvictory"):GetString()),Vector(0,0,0),0,100,1)
+                end
+            end
+
+            for k,v in pairs(allteamscores) do
+                if k == winningteam then continue end
+                local col = ZetaGetTeamColor(k)
+
+                local teamcolor = col and col:ToColor() or color_white
+
+                local points = (v > 1 and " points" or " point")
+
+                SendChatMessage(color_glacier,"[",teamcolor,k,color_glacier,"]"," ended with a total of ",tostring(v),points)
+            end
+
+            local markers = ents.FindByClass("zeta_koth")
+
+            for k,v in ipairs(markers) do
+                v:RestoretoNeutral()
+            end
+
+            for k,v in ipairs(GetPlayerZetas()) do
+                SetEntityToSpawn(v)
+                if v.IsZetaPlayer and v.zetaTeam == winningteam then
+                    timer.Simple(math.Rand(0.5,2),function()
+                        if !IsValid(v) then return end
+                        v:PlayKillSound()
+                    end)
+                elseif v.IsZetaPlayer then
+                    timer.Simple(math.Rand(0.5,2),function()
+                        if !IsValid(v) then return end
+                        v:PlayDeathSound()
+                    end)
+                end
+            end
         end
     end
 
+
+
     function _ZetaKothStartGame()
-        if GetGlobalBool("_ZetaKOTH_Gameactive") then return end
+        if !GetConVar("zetaplayer_useteamsystem"):GetBool() then PrintMessage(HUD_PRINTTALK,"You must have Team System enabled!") return end
+        if _ZetaIsMinigameActive() then return end
+        if #ents.FindByClass("zeta_koth") == 0 then PrintMessage(HUD_PRINTTALK,"You need atleast one KOTH/Domination point!") return end
         local time = GetConVar("zetaplayer_kothmodetime"):GetInt()
         local curtime = time
         SetGlobalInt("_ZetaKOTH_time",time)
@@ -139,62 +199,12 @@ if SERVER then
 
             if curtime == 10 and GetConVar("zetaplayer_10secondcountdownsound"):GetString() != "" then
                 sound.Play(GetSound(GetConVar("zetaplayer_10secondcountdownsound"):GetString()),Vector(0,0,0),0,100,1)
+            elseif curtime == 30 and GetConVar("zetaplayer_koth30secondssound"):GetString() != ""  then
+                sound.Play(GetSound(GetConVar("zetaplayer_koth30secondssound"):GetString()),Vector(0,0,0),0,100,1)
             end
 
             if curtime == 0 then
-                SetGlobalBool("_ZetaKOTH_Gameactive", false )
-                local winningteam,score,allteamscores = _ZetaGetKothWinner()
-                local col = ZetaGetTeamColor(winningteam)
-                local teamcolor = col and col:ToColor() or color_white
-
-                
-                if winningteam then
-                    local points = (score > 1 and " points" or " point")
-                    SendChatMessage(color_white,"[KOTH]",color_glacier," Time limit reached! ",teamcolor,winningteam,color_glacier," won with ",color_white,score,points)
-                    
-
-                    if GetConVar("zetaplayer_playerteam"):GetString() != "" and GetConVar("zetaplayer_playerteam"):GetString() != winningteam then
-                        if GetConVar("zetaplayer_kothgameover"):GetString() != "" then
-                            sound.Play(GetSound(GetConVar("zetaplayer_kothgameover"):GetString()),Vector(0,0,0),0,100,1)
-                        end
-                    else
-                        if GetConVar("zetaplayer_kothvictory"):GetString() != "" then
-                            sound.Play(GetSound(GetConVar("zetaplayer_kothvictory"):GetString()),Vector(0,0,0),0,100,1)
-                        end
-                    end
-
-                    for k,v in pairs(allteamscores) do
-                        if k == winningteam then continue end
-                        local col = ZetaGetTeamColor(k)
-
-                        local teamcolor = col and col:ToColor() or color_white
-
-                        local points = (v > 1 and " points" or " point")
-
-                        SendChatMessage(color_glacier,"[",teamcolor,k,color_glacier,"]"," ended with a total of ",v,points)
-                    end
-
-                    local markers = ents.FindByClass("zeta_koth")
-
-                    for k,v in ipairs(markers) do
-                        v:RestoretoNeutral()
-                    end
-
-                    for k,v in ipairs(GetPlayerZetas()) do
-                        SetEntityToSpawn(v)
-                        if v.IsZetaPlayer and v.zetaTeam == winningteam then
-                            timer.Simple(math.Rand(0.5,2),function()
-                                if !IsValid(v) then return end
-                                v:PlayKillSound()
-                            end)
-                        elseif v.IsZetaPlayer then
-                            timer.Simple(math.Rand(0.5,2),function()
-                                if !IsValid(v) then return end
-                                v:PlayDeathSound()
-                            end)
-                        end
-                    end
-                end
+                _ZetaEndKOTHGame()
             end
          end)
 

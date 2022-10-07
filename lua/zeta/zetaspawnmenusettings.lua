@@ -2,12 +2,6 @@ AddCSLuaFile()
 
 if ( CLIENT ) then
 
-    -- Preset stuff
-    local convars = {}
-    for k, v in pairs(_zetaconvardefault) do
-        convars[#convars + 1] = k
-    end
-    
     
 local function AddZetaOptions()
     
@@ -22,11 +16,14 @@ local function AddZetaOptions()
             panel:CheckBox('Random Spawn Rate','zetaplayer_mapwidespawningrandom')
             panel:ControlHelp('If Natural Spawn Rate should act as the max value for a random spawn rate')
 
+            panel:CheckBox("Time Based MWS","zetaplayer_timebasedmws")
+            panel:ControlHelp('If Map Wide Spawning should dynamically change natural zeta spawn rate and amount depending on your time. This is best used with Respawning Natural Zetas\n\nMax Natural Zetas option will act as the limit of zetas MWS can possibly spawn')
+
             panel:CheckBox('Spawn at Player Spawn Points','zetaplayer_mapwidespawninguseplayerstart')
             panel:ControlHelp('If natural Zetas should spawn a Player Spawn Points. Also known as info_player_start entities')
 
             panel:CheckBox('Respawning Natural Zetas','zetaplayer_mwsspawnrespawningzetas')
-            panel:ControlHelp('If Natural Zetas should be Respawning Zetas. Enable disconnecting in Others for the best experience')
+            panel:ControlHelp('If Natural Zetas should be Respawning Zetas. Enable disconnecting in General Zeta Settings for the best experience')
 
             panel:CheckBox('Enable Mingebag Variant','zetaplayer_mapwidemingebag')
             panel:ControlHelp('If Natural Zetas can become a mingebag if their chance succeeds')
@@ -42,25 +39,33 @@ local function AddZetaOptions()
             
 
             local gmodWeps = {}
-        local cssWeps = {}
-        local tf2Weps = {}
-        local hl1Weps = {}
-        local dodWeps = {}
-        for k, v in pairs(zetaWeaponConfigTable) do            
-            if k == 'CSS' then
-                cssWeps = v
-            elseif k == 'TF2' then
-                tf2Weps = v
-            elseif k == "HL1" then
-                hl1Weps = v
-            elseif k == "DOD" then
-                dodWeps = v
-            elseif k == "L4D" then
-                l4dWeps = v
-            else
-                gmodWeps = v
+            local cssWeps = {}
+            local tf2Weps = {}
+            local hl1Weps = {}
+            local dodWeps = {}
+            local customweps = {}
+            local customAddonweps = {}
+            for k, v in pairs(zetaWeaponConfigTable) do            
+                if k == 'CSS' then
+                    cssWeps = v
+                elseif k == 'TF2' then
+                    tf2Weps = v
+                elseif k == "HL1" then
+                    hl1Weps = v
+                elseif k == "DOD" then
+                    dodWeps = v
+                elseif k == "L4D" then
+                    l4dWeps = v
+                elseif k == "CUSTOM" then
+                    customweps = v
+                elseif k == "ADDON" then
+                    customAddonweps = v
+                elseif k == "MP1" then
+                    mp1Weps = v
+                else
+                    gmodWeps = v
+                end
             end
-        end
 
             local box = panel:ComboBox('Spawn weapon','zetaplayer_naturalspawnweapon')
             box:SetSortItems(false)
@@ -92,6 +97,22 @@ local function AddZetaOptions()
             if #gmodWeps > 0 then
                 for i = 1, #gmodWeps do
                     box:AddChoice('[Misc] '..gmodWeps[i][1], gmodWeps[i][2])
+                end
+            end
+
+            box:AddSpacer()
+
+            if #customAddonweps > 0 then
+                for i = 1, #customAddonweps do
+                    box:AddChoice('[Addon] '..customAddonweps[i][1], customAddonweps[i][2])
+                end
+            end
+            
+            box:AddSpacer()
+
+            if #customweps > 0 then
+                for i = 1, #customweps do
+                    box:AddChoice('[Custom] '..customweps[i][1], customweps[i][2])
                 end
             end
             
@@ -150,6 +171,15 @@ local function AddZetaOptions()
             
                 box:AddSpacer()
             end
+
+            if #mp1Weps > 0 then
+                for i = 1, #mp1Weps do
+                    box:AddChoice(mp1Weps[i][1], mp1Weps[i][2])
+                end
+            
+                box:AddSpacer()
+            end
+
             panel:ControlHelp('The Weapon Natural Zetas should spawn with')
 
             panel:NumSlider("Spawning Health","zetaplayer_naturalzetahealth",1,10000,0)
@@ -211,7 +241,18 @@ local function AddZetaOptions()
             panel:CheckBox('Player Spawn at Team Points','zetaplayer_spawnatteamspawns')
             panel:ControlHelp("If You should spawn at your team's spawn points")
 
-            panel:Help('---- King of the Hill / Domination Settings ----')
+            panel:CheckBox('Enable Friendly Fire','zetaplayer_enablefriendlyfire')
+            panel:ControlHelp("If teams can deal damage to their teammates")
+
+            panel:CheckBox('Stick near Team','zetaplayer_teamsstickneareachother')
+            panel:ControlHelp("If teams should stick near each other")
+
+            panel:NumSlider("Stick Near Distance", "zetaplayer_teamsstickneardistance", 100, 15000, 0)
+            panel:ControlHelp("How close a team should be together")
+
+            
+
+            panel:Help('\n\n\n\n---- King of the Hill / Domination Settings ----')
 
             panel:CheckBox('Show KOTH Points on HUD','zetaplayer_showkothpointsonhud')
             panel:ControlHelp("If KOTH Markers should show on your HUD")
@@ -222,8 +263,11 @@ local function AddZetaOptions()
             panel:NumSlider("KOTH Time Limit","zetaplayer_kothmodetime",10,3600,0)
             panel:ControlHelp("The time limit in seconds before a game ends")
 
-            panel:TextEntry("Countdown Sound","zetaplayer_10secondcountdownsound")
-            panel:ControlHelp("The sound that will play when the timer reaches ten seconds")
+            panel:TextEntry("10 Seconds","zetaplayer_10secondcountdownsound")
+            panel:ControlHelp("The sound that will play when the timer reaches 10 seconds")
+
+            panel:TextEntry("30 Seconds","zetaplayer_koth30secondssound")
+            panel:ControlHelp("The sound that will play when the timer reaches 30 seconds")
 
             panel:TextEntry("Loss Sound","zetaplayer_kothgameover")
             panel:ControlHelp("The sound that will play when your team loses")
@@ -239,10 +283,134 @@ local function AddZetaOptions()
             panel:Button("Start KOTH game","zetaplayer_beginkothgame")
             panel:Button("End KOTH game","zetaplayer_endkothgame")
             
-            panel:Help('-----------------------------------------')
+            panel:Help('-----------------------------------------\n\n\n\n')
+
+            panel:Help('\n\n\n\n---- Capture The Flag Settings ----')
+
+            panel:TextEntry("Enemy Flag Stolen","zetaplayer_ctfenemyflagstolensound")
+            panel:ControlHelp("The sound that will play when a enemy flag is stolen")
+
+            panel:TextEntry("Enemy Flag Captured","zetaplayer_ctfenemyflagcapturesound")
+            panel:ControlHelp("The sound that will play when a enemy flag is captured")
+
+            panel:TextEntry("Flag Returned","zetaplayer_ctfflagreturn")
+            panel:ControlHelp("The sound that will play when a flag returns to its zone")
             
-            panel:TextEntry( 'Team Override', 'zetaplayer_overrideteam' )
-            panel:ControlHelp('Set this to a team name and newly spawned Zetas will be forced into the team regardless of team limit. Remove text for it to go back to normal')
+            panel:TextEntry("Flag dropped","zetaplayer_ctfflagdropped")
+            panel:ControlHelp("The sound that will play when a flag is dropped")     
+            
+            panel:TextEntry("Your Flag Captured","zetaplayer_ctfourflagcapturesound")
+            panel:ControlHelp("The sound that will play when your team's flag is captured")                 
+
+            panel:TextEntry("Your Flag Stolen","zetaplayer_ctfourflagstolensound")
+            panel:ControlHelp("The sound that will play when your team's flag is stolen")  
+
+            panel:TextEntry("30 Seconds","zetaplayer_ctf30secondssound")
+            panel:ControlHelp("The sound that will play when the timer reaches 30 seconds")  
+
+            panel:TextEntry("10 Seconds","zetaplayer_ctf10secondssound")
+            panel:ControlHelp("The sound that will play when the timer reaches 10 seconds")
+            
+            panel:TextEntry("Game Start Sound","zetaplayer_ctfgamestartsound")
+            panel:ControlHelp("The sound that will play when the game starts")
+            
+            panel:TextEntry("Victory Sound","zetaplayer_ctfvictorysound")
+            panel:ControlHelp("The sound that will play when your team wins")
+            
+            panel:TextEntry("Loss Sound","zetaplayer_ctflosssound")
+            panel:ControlHelp("The sound that will play when your team loses")
+
+
+
+
+            panel:Help("\n\n")
+
+
+
+            panel:NumSlider("Capture Limit","zetaplayer_ctfcapturelimit",1,100,0)
+            panel:ControlHelp("The amount of captures needed to win the game")
+
+            panel:NumSlider("Time Limit","zetaplayer_ctfmodetime",10,3600,0)
+            panel:ControlHelp("The time before the game ends")
+
+            panel:NumSlider("Return Time","zetaplayer_ctfreturntime",0,120,0)
+            panel:ControlHelp("The time before a dropped flag returns back to its capture zone")
+            
+            
+            panel:Button('Start CTF Game', 'zetaplayer_beginctfgame')
+            panel:Button('End CTF Game', 'zetaplayer_endctfgame')
+            
+            
+            
+            panel:Help('-----------------------------------------\n\n\n\n')
+
+
+            panel:Help('\n\n\n\n---- Team Deathmatch Settings ----')
+
+
+            panel:NumSlider( 'Time Limit', 'zetaplayer_tdmmodetime', 10, 6600,0 )
+            panel:ControlHelp('The time before the game ends')
+
+            panel:NumSlider( 'Kill Limit', 'zetaplayer_tdmkilllimit', 10, 200,0 )
+            panel:ControlHelp('How many kills a team needs in order to win')
+
+            panel:TextEntry("10 Kills Left Sound","zetaplayer_tdm10killsremain")
+            panel:ControlHelp("The sound that will play when a team needs 10 more kills")
+
+            panel:TextEntry("30 Seconds","zetaplayer_tdm30secondssound")
+            panel:ControlHelp("The sound that will play when the timer reaches 30 seconds")  
+
+            panel:TextEntry("10 Seconds","zetaplayer_tdm10secondssound")
+            panel:ControlHelp("The sound that will play when the timer reaches 10 seconds")
+            
+            panel:TextEntry("Game Start Sound","zetaplayer_tdmgamestartsound")
+            panel:ControlHelp("The sound that will play when the game starts")
+            
+            panel:TextEntry("Victory Sound","zetaplayer_tdmvictorysound")
+            panel:ControlHelp("The sound that will play when your team wins")
+            
+            panel:TextEntry("Loss Sound","zetaplayer_tdmlosssound")
+            panel:ControlHelp("The sound that will play when your team loses")
+
+
+            panel:Button("Start TDM game","zetaplayer_begintdmgame")
+            panel:Button("End TDM game","zetaplayer_endtdmgame")
+
+            panel:Help('-----------------------------------------\n\n\n\n')
+            
+            local teamfile = file.Read("zetaplayerdata/teams.json")
+
+            if teamfile then
+                teamfile = util.JSONToTable(teamfile)
+                local box = panel:ComboBox("Team Override","zetaplayer_overrideteam")
+        
+                for k,v in ipairs(teamfile) do
+                    box:AddChoice(v[1],v[1])
+                end
+        
+                box:AddChoice("None","")
+        
+                local refresh = vgui.Create("DButton")
+                panel:AddItem(refresh)
+                refresh:SetText("Refresh Team List")
+        
+                function refresh:DoClick()
+                    box:Clear()
+        
+                    local teamfile = util.JSONToTable(file.Read("zetaplayerdata/teams.json"))
+        
+                    for k,v in ipairs(teamfile) do
+                        box:AddChoice(v[1],v[1])
+                    end
+                    
+                    box:AddChoice("Neutral","")
+                end
+
+                panel:ControlHelp("The team newly spawned zetas should be forced into")
+        
+        
+        
+            end
             
 
 --[[             panel:Help('The Color your fellow team members will display')
@@ -254,8 +422,9 @@ local function AddZetaOptions()
             colorpanel:SetConVarB('zetaplayer_teamcolorBlue') ]]
             panel:Help('Select your team or add or remove teams in this panel')
             panel:Button('Open Team Panel', 'zetaplayer_openteampanel')
-            panel:Button('Open Team Ent Data Panel', 'zetaplayer_openteamentsavepanel')
             
+            panel:Button('Open Team Ent Data Panel', 'zetaplayer_openteamentsavepanel')
+            panel:ControlHelp("Save Flags, Team Spawns, and KOTH/Domination points with this panel")
             
     end)
     
@@ -299,22 +468,41 @@ local function AddZetaOptions()
         panel:Help('This is where you can register and see props, names, and ect through panels')
             
         panel:Button('Open Name Panel','zetaplayer_opennamepanel')
+        panel:ControlHelp("Opens a panel that allows you to add names to the Zetas")
 
         panel:Button('Open Prop Panel','zetaplayer_openproppanel')
+        panel:ControlHelp("Opens a panel that allows you to add more props to the Zetas")
 
         panel:Button('Open NPC Panel','zetaplayer_opennpcpanel')
+        panel:ControlHelp("Opens a panel that allows you to add more npcs to the Zetas")
 
         panel:Button('Open Entity Panel','zetaplayer_openentpanel')
+        panel:ControlHelp("Opens a panel that allows you to add more entities to the Zetas")
 
         panel:Button('Open Profile Panel','zetaplayer_openprofilepanel')
+        panel:ControlHelp("Opens a panel that allows you to create profiles about specific Zetas and give them specific details such as playermodels, personalities, admin or not, and ect.")
         
         panel:Button('Open Text Panel','zetaplayer_opentextdatapanel')
+        panel:ControlHelp("Opens a panel that allows you to add text lines for the Zetas to use")
 
         panel:Button('Open Media Panel','zetaplayer_openmediapanel')
+        panel:ControlHelp("Opens a panel that allows you to add videos that the Zetas can request on Media Players")
 
         panel:Button('Open Playermodel Block Panel','zetaplayer_openblockedmodelpanel')
+        panel:ControlHelp("Opens a panel that allows you to prevent certain playermodels from being used")
         
         panel:Button('Open Voting Data Panel','zetaplayer_openvotingpanel')
+        panel:ControlHelp("Opens a panel that allows you to add preset votes the Zetas can start")
+
+        panel:Button('Open Team Panel', 'zetaplayer_openteampanel')
+        panel:ControlHelp("Opens a panel that allows you to create teams and join/leave a team")
+
+        panel:Button('Open Team Ent Data Panel', 'zetaplayer_openteamentsavepanel')
+        panel:ControlHelp("Opens a panel that allows you to save team system entities such as KOTH Points, Team Spawn Points, and Flags")
+
+        
+        panel:TextEntry("Panel BGM", "zetaplayer_panelbgm")
+        panel:ControlHelp("Sound path to a file that will play in the background while in a panel\n\nTypically you want to put music here. This option is useless and pointless but here it is lol.\n\nAdding a /* at the end of a file path will pick a random file in the folder. EXAMPLE, menu/*")
         
     end)
 
@@ -331,6 +519,8 @@ local function AddZetaOptions()
             panel:NumSlider( 'View Shots FOV', 'zetaplayer_zetascreenshotfov', 10, 180,0 )
             panel:NumSlider( 'View Shot Chance', 'zetaplayer_zetascreenshotchance', 1, 100,0 )
             panel:ControlHelp('The chance a View Shot will render when a Zeta requests a View Shot')
+
+            panel:Button( "View Zeta View Shots", "zetaplayer_openviewshotviewer" )
 
             panel:Help("NOTE: When a Zeta requests to take a View Shot, your view will be brought to what the Zeta sees until it makes a view shot. Your game will also spike when the View Shot renders in order to create the file. However on the event of a view shot, this happens relatively fast and is generally not too noticeable.")
 
@@ -359,6 +549,9 @@ local function AddZetaOptions()
 
         panel:NumSlider("Text Chance Override", "zetaplayer_textchanceoverride",0,100,0)
 
+        panel:NumSlider("Chat Cooldown", "zetaplayer_textchatslowtime",0,10,1)
+        panel:ControlHelp("The time in seconds before a zeta can send a message in chat. Think of this as Discord Slowmode")
+
         panel:NumSlider("Receive Distance", "zetaplayer_textchatreceivedistance",0,10000,0)
         panel:ControlHelp("The distance you can receive messages from Zetas. This is proximity Text Chat basically. Set to 0 for global")
 
@@ -371,6 +564,9 @@ local function AddZetaOptions()
         panel:CheckBox('Allow Interrupting','zetaplayer_allowinterrupting')
         panel:ControlHelp("If Zetas should send a uncompleted message when they are interrupted. Example would be, guys wheres-  and   guys wheresASF763rhUDF")
 
+        panel:CheckBox('Allow Sentence Mixing','zetaplayer_textmixing')
+        panel:ControlHelp("If all text sent by Zetas should be modified through sentence mixing of many other lines in the same type/situation. This can yield pretty interesting things in chat")
+        
         panel:CheckBox('Allow Creating Votes','zetaplayer_allowcreatingvotes')
         panel:ControlHelp("If Zetas are allowed to start votes randomly")
 
@@ -383,187 +579,14 @@ local function AddZetaOptions()
     
     spawnmenu.AddToolMenuOption( 'Zeta Player', 'Zeta Player', 'zeta_options', 'Other', "", "", function(panel) 
         panel:Help('Presets effect ALL settings relating to the Zetas!')
-            panel:AddControl("ComboBox", {
-                Options = {
-                    ["default"] = _zetaconvardefault
-                },
-                CVars = convars,
-                Label = "",
-                MenuButton = "1",
-                Folder = "zetaplayerdata"
-            })
 
-            panel:Help('Changing these will update live for existing Zetas. You do not have to respawn them for changes to take in effect')
+            panel:Button( "Open Preset Panel", "zetaplayer_openpresetpanel" )
+            panel:ControlHelp( "Opens a panel that allows you to make presets of all the settings relating to the Zetas.\n\nThis does not effect file data such as names, textdata, ect" )
 
-            panel:CheckBox('Disable Thinking','zetaplayer_disabled')
-            panel:ControlHelp('Disable Zeta from thinking')
-
-            panel:NumSlider( 'Wander Distance', 'zetaplayer_wanderdistance', 500, 15000,0 )
-            panel:ControlHelp("The Distance that Zetas are allowed to wander within\n\nWarning! Setting this too high may crash your game if your pc isn't strong enough! Value of 1500 or lower is recommended. If you are crashing, try lowering the value")
-
-            panel:CheckBox('Enable Corpse Cleanup','zetaplayer_cleanupcorpse')
-            panel:CheckBox('Enable Corpse Cleanup Effect','zetaplayer_cleanupcorpseeffect')
-            panel:NumSlider( 'Clean Up Time', 'zetaplayer_cleanupcorpsetime', 1, 190,0 )
-            panel:ControlHelp('Enable the Corpse cleanup. Clean Up effect is the effect when a corpse is about to be removed this is purely optional. Clean Up time is the time before it a corpse gets cleaned')
-
-            panel:CheckBox('Explosive Corpse Cleanup','zetaplayer_explosivecorpsecleanup')
-            panel:ControlHelp('If Corpses should blow up when they are cleaned')
-            
-            panel:NumSlider("Damage Force Add","zetaplayer_forceadd",0,10000,0)
-            panel:ControlHelp('The amount to add on to Damage Force. Essentially makes dead bodies fly further when shot by bullets')
-
-            panel:CheckBox('Enable Debug','zetaplayer_debug')
-            panel:ControlHelp('Enables Debug text')
-
-            panel:CheckBox('Enable Console Logging','zetaplayer_consolelog')
-            panel:ControlHelp('If Zeta Events should be logged in console. Mimics the logging you see when real players spawn things or dies')
-
-            panel:CheckBox('Show Logging on Screen','zetaplayer_showzetalogonscreen')
-            panel:ControlHelp('If Zeta Events should show up on screen. Console Logging must be on for this to function!')
-
-            panel:CheckBox('Draw Flashlights','zetaplayer_drawflashlight')
-            panel:ControlHelp('If Zeta Flashlights should draw')
-
-
-            panel:CheckBox('Enable Fall Damage','zetaplayer_allowfalldamage')
-            panel:ControlHelp('If Zeta should take fall damage')
-            
-            panel:CheckBox('Enable Realistic Fall Damage','zetaplayer_allowrealisticfalldamge')
-            panel:ControlHelp('If Zetas should take realistic fall damage. Note, Fall damage must be on for this to apply')
-
-            panel:CheckBox('Spawners Save Identity','zetaplayer_zetaspawnersaveidentity')
-            panel:ControlHelp("If Zeta Spawners should save their Zeta's identity. Turning this off will have random Zetas spawn again")
-
-            panel:NumSlider('Spawner Spawn Time','zetaplayer_zetaspawnerrespawntime',0,120,2)
-            panel:ControlHelp("The time Respawning Zetas should respawn after death")
-            
-
-            panel:CheckBox('Ignore Small Nav Areas','zetaplayer_ignoresmallnavareas')
-            panel:ControlHelp("Zetas will not favor going to smaller nav areas when this is enabled. Turn this on if you don't want Zetas constantly staying near a certain spot")
-
-            panel:CheckBox('Use Custom Profile Pictures','zetaplayer_usecustomavatars')
-            panel:ControlHelp("If Zetas are able to use images from custom_avatars as their profile pictures")
-
-            panel:CheckBox('No Repeating Profile Pictures','zetaplayer_norepeatingpfps')
-            panel:ControlHelp("If Profile Pictures should not be re-used | Community Contribute")
-
-
-            panel:CheckBox('Show Profile Pictures in Tab Menu','zetaplayer_showprofilepicturesintab')
-            panel:ControlHelp("If the Tab display should show Zeta Profile Pictures")
-
-            panel:CheckBox('Show Profile Pictures in display info','zetaplayer_showpfpoverhealth')
-            panel:ControlHelp("If Zetas should show their profile picture when you hover over them")
-
-            panel:CheckBox('Display Armor','zetaplayer_displayarmor')
-            panel:ControlHelp("If Zetas should display their armor when you hover over them")
-
-            panel:NumSlider("Spawning Health", "zetaplayer_zetahealth", 1, 10000, 0)
-            panel:ControlHelp("The amount of health Zetas should spawn with")
-
-            panel:NumSlider("Spawning Armor", "zetaplayer_zetaarmor", 0, 10000, 0)
-            panel:ControlHelp("The amount of armor Zetas should spawn with")
-
-            panel:CheckBox('Real Player-like Damage Scaling', 'zetaplayer_userealplayerdmgscale')
-            panel:ControlHelp("If damage dealt to Zetas should scale like the real players one do.")     
-
-        
-            panel:NumSlider('Armor Absorption Percent','zetaplayer_armorabsorbpercent', 1, 100, 0)
-            panel:ControlHelp("How much percent of the damage should zeta's armor absorb")
-
-            panel:CheckBox('Drop Weapon','zetaplayer_dropweapons')
-            panel:ControlHelp("If Zetas should drop their weapon. Note, the dropped weapon is a prop_physics")
-
-            panel:CheckBox('Trigger Combine Mines','zetaplayer_triggermines')
-            panel:ControlHelp("Makes Zetas trigger nearby Combine Mines to explode | Community Contribute")
-
-            panel:NumSlider('Mine Hop Time','zetaplayer_triggermines_hoptime',0,5,2)
-            panel:ControlHelp("Time required for the mine to jump at its target after being triggered")
-
-            panel:CheckBox('Disable Unstuck','zetaplayer_disableunstuck')
-            panel:ControlHelp("If Zetas should not try to get themselves unstuck. Normally you shouldn't touch this")
-
-            panel:CheckBox('Kill on Touch Nodraw or Sky','zetaplayer_killontouchnodraworsky')
-            panel:ControlHelp("If Zetas should die when they are touching a nodraw surface or sky surface")
-
-            panel:CheckBox('Allow Sprays','zetaplayer_allowsprays')
-            panel:ControlHelp("If Zetas are allowed to use Sprays. To add sprays, go into this path, Garrysmod/garrysmod/data/zetaplayerdata/custom_sprays\nInside that folder is where you can put .PNG and .JPG images in. You do not have to have specific names | Community Contribute")
-            
-            panel:CheckBox('Player Sized Sprays','zetaplayer_playersizedsprays')
-            panel:ControlHelp("If Sprays should have the same size as a real player's spray. Turn this off for the old method ")
-            
-            panel:CheckBox('Server Junk','zetaplayer_serverjunk')
-            panel:ControlHelp("If Props should spawn on the map when you first load into a map. Only works in singleplayer and requires a Navigation Mesh!")
-
-            panel:CheckBox('Freeze server Junk','zetaplayer_freezeserverjunk')
-            panel:ControlHelp("If server junk should spawn frozen")
-            
-            panel:NumSlider("Prop count","zetaplayer_serverjunkcount",1,400,0)
-            panel:ControlHelp("How many props should be spawned by Server junk")
-
-            panel:CheckBox('Enable Drowning','zetaplayer_enabledrowning')
-            panel:ControlHelp("If Zetas should drown in water")
-
-            panel:CheckBox('Dynamic Pathfinding','zetaplayer_usedynamicpathfinding')
-            panel:ControlHelp("READ THIS BEFORE ENABLING!\n\nDynamic Pathfinding will cost more on performance due to the traces it conducts in order to figure out paths! This is is best used with low Zeta counts such as 4!\n\nIf Zetas should try to dynamically pathfind around objects and find alternate routes if blocked.\nThis system is not perfect and is as good as it will get!")
-
-            panel:CheckBox('Use Profile System','zetaplayer_useprofilesystem')
-            panel:ControlHelp("If the Zetas should use a profile from profiles.json")
-
-            panel:CheckBox('Profiles only','zetaplayer_profilesystemonly')
-            panel:ControlHelp("If the Zetas should only spawn using the profiles if possible")
-
-            panel:CheckBox('Call OnNPCKilled Hook on death','zetaplayer_callonnpckilledhook')
-            panel:ControlHelp("If killed Zetas should call the OnNPCKilled hook. This is used to work with custom killfeeds and other addons. However, Zeta names will not show up properly with this")
+            panel:Help("NOTE: 5.3 Update has moved many options to different categories")
 
             panel:TextEntry("Spawn Sound","zetaplayer_customspawnsound")
             panel:ControlHelp("Custom spawn sound a zeta will use when they spawn by MWS or respawn")
-            
-            panel:CheckBox('Clear Path','zetaplayer_clearpath')
-            panel:ControlHelp("If Zetas with lethal weapons should attack a breakable object that blocks their way")
-
-            panel:CheckBox('Flee from Sanic Type Nextbots','zetaplayer_fleefromsanics')
-            panel:ControlHelp("If Zetas should run away from sanic type nextbots")
-
-            panel:CheckBox('Flee from DRG Nextbots','zetaplayer_fleefromdrgbasenextbots')
-            panel:ControlHelp("If Zetas should run away from DRG nextbots")
-
-            panel:CheckBox('Allow Media Request','zetaplayer_allowrequestmedia')
-            panel:ControlHelp("If Zetas are allowed to request videos on a Media Player")
-            
-            panel:CheckBox('Disable Jumping','zetaplayer_disablejumping')
-            panel:ControlHelp("If Zetas shouldn't jump over objects")
-
-            panel:CheckBox('Allow DSteps Support', 'zetaplayer_allowdstepssupport')
-            panel:ControlHelp("If Zetas should use DSteps' footstep sounds if its installed")      
-
-            panel:CheckBox('Allow Kill Binds', 'zetaplayer_allowkillbind')
-            panel:ControlHelp("If Zetas are allowed to use their kill binds to kill themselves")
-
-            panel:CheckBox('Casual Looking', 'zetaplayer_casuallooking')
-            panel:ControlHelp("If Zetas should look around more like a player. Example being a Zeta facing somewhere or at something while moving.")
-            
-            panel:CheckBox('Allow Noclip', 'zetaplayer_allownoclip')
-            panel:ControlHelp("If Zetas are allowed to no clip")
-
-            panel:CheckBox('Find Poker Table on Spawn', 'zetaplayer_findpokertableonspawn')
-            panel:ControlHelp("If Zetas should look for poker tables when they spawn. You must have the Gpoker addon for this!")
-            
-            panel:NumSlider('Water Air Time', 'zetaplayer_waterairtime', 1, 60, 0)
-            panel:ControlHelp("The amount of time zeta can swim in water before starting to drown")
-
-            panel:CheckBox("Prevent Eye Tapper's view tilting", 'zetaplayer_eyetap_preventtilting')
-            panel:ControlHelp("If the view from Zeta Eye Tapper shouldn't be tilted left and right")
-
-            panel:Help('-------------------------------------------------------')
-
-            
-            panel:CheckBox('Allow Disconnecting','zetaplayer_allowdisconnecting')
-            panel:ControlHelp('If Zetas are able to disconnect from your game')
-
-            panel:NumSlider("Max Disconnect Time","zetaplayer_maxdisconnecttime",0,3600,0)
-            panel:ControlHelp('The max of random time in seconds it will take before a Zeta decides to disconnect.\n\n600 is 10 minutes\n1800 is 30 minutes\n3600 is 1 hour')
-
-            panel:CheckBox('Show Connect Messages','zetaplayer_showconnectmessages')
 
             panel:TextEntry("Connect Sound","zetaplayer_customjoinsound")
             panel:ControlHelp("Custom connect sound a zeta will use when they join the server\n\nIf you do not want to hear the sound, use 'zetaplayer/misc/zeta_nocon_sound.wav'")
@@ -571,44 +594,21 @@ local function AddZetaOptions()
             panel:TextEntry("Disconnect Sound","zetaplayer_customleavesound")
             panel:ControlHelp("Custom disconnect sound a zeta will use when they leave the server\n\nIf you do not want to hear the sound, use 'zetaplayer/misc/zeta_nocon_sound.wav'")
 
-            panel:CheckBox('Enable Name Display','zetaplayer_displayzetanames')
-            panel:ControlHelp('If Zetas should display their name when you look at them')
+            panel:CheckBox('Show Connect Messages','zetaplayer_showconnectmessages')
 
-            panel:CheckBox('Player Color Based Display Color','zetaplayer_playercolordisplaycolor')
-            panel:ControlHelp("If display name colors should be based on the Zeta's Playermodel Color")
-            
-            panel:CheckBox('Rainbow Name Display','zetaplayer_displaynamerainbow')
-            panel:ControlHelp("If the Zeta's name should change color linearly")
-            
-            panel:Help('You can change the color of their name display below')
-            local colorpanel = vgui.Create('DColorMixer')
-            panel:AddItem(colorpanel)
-            colorpanel:SetParent(panel)
-            colorpanel:SetConVarR('zetaplayer_displaynameRed')
-            colorpanel:SetConVarG('zetaplayer_displaynameGreen')
-            colorpanel:SetConVarB('zetaplayer_displaynameBlue')
+            panel:CheckBox("Prevent Eye Tapper's view tilting", 'zetaplayer_eyetap_preventtilting')
+            panel:ControlHelp("If the view from Zeta Eye Tapper shouldn't be tilted left and right")
+    
+            panel:CheckBox("Eye Tapper Follow Zeta's Corpse", 'zetaplayer_eyetap_followcorpse')
+            panel:ControlHelp("If the view from Zeta Eye Tapper should switch to zeta's corpse after death")
+
+            panel:CheckBox("Use Panic Animation", 'zetaplayer_usepanicanimation')
+            panel:ControlHelp("If panicking Zetas should use the panic animation")
+
+            panel:CheckBox('Find Poker Table on Spawn', 'zetaplayer_findpokertableonspawn')
+            panel:ControlHelp("If Zetas should look for poker tables when they spawn. You must have the Gpoker addon for this!")
 
             panel:Button('Teleport to a random Zeta','zetaplayer_tptorandomzeta',LocalPlayer())
-
-            panel:Button("Create Server Junk","zetaplayer_createserverjunk")
-            panel:ControlHelp("Spawn junk around the map. The amount is determined by Prop Count")
-
-            panel:Help("-- SERVER CACHE --")
-
-            panel:Help("What is the SERVER CACHE?\n\nThe Server cache is a cache of data the Zetas use and create when they spawn. The purpose of the SERVER Cache is to prevent Zetas from creating the data over and over when they spawn. In theory, this is supposed to help with performance as all the Zetas would only use the SERVER CACHE if the option is enabled\n\nHowever, you must update the cache after you add new things to the listed data below.")
-
-
-            panel:CheckBox("Use Server Cache Data", "zetaplayer_useservercacheddata")
-            panel:ControlHelp('If Zetas should use the following data from the Server:\nNames\nProps\nEntities\nNPCs\nText Data\nMedia Data\nMaterials\nProfile Pictures\nPlayermodels with or without Playermodel Blocking')
-
-            panel:Button("Update SERVER Cache","zetaplayer_updateservercache")
-            panel:ControlHelp('Update the Cache to add any new additions')
-
-            panel:Help("-- -- -- -- --")
-
-            panel:Button('Auto Tweak Navigation Mesh','zetaplayer_autotweaknavmesh',LocalPlayer())
-            panel:ControlHelp("This will edit the entire nav mesh to remove useless 2 way connections that confuse the Zetas sometimes. Save the nav mesh after using this.")
-            panel:Button('Save Navigation Mesh','zetaplayer_savenavmesh',LocalPlayer())
             
 
 
@@ -620,7 +620,7 @@ local function AddZetaOptions()
 
     spawnmenu.AddToolMenuOption( 'Zeta Player', 'Zeta Player', 'Tool_Permission', 'ToolGun Options', "", "", function(panel) 
 
-        panel:Help('Changing these will update live for existing Zetas. You do not have to respawn them for changes to take in effect NOTE: Limits effect per Zeta! Meaning each Zeta has their own limit!')
+        panel:Help('NOTE: Limits effect per Zeta! Meaning each Zeta has their own limit!')
 
 
 
@@ -724,12 +724,18 @@ zetaplayer_allowtoolgun
 zetaplayer_allowphysgun ]]
 
     spawnmenu.AddToolMenuOption( 'Zeta Player', 'Zeta Player', 'zeta_equipment', 'Equipment Options', "", "", function(panel) 
+        panel:Help('Create Custom Weapons using the panel below')
+
+        panel:Button( "Open Weapon Creator", "zetaplayer_openweaponcreatorpanel" )
 
         local gmodWeps = {}
         local cssWeps = {}
         local tf2Weps = {}
         local hl1Weps = {}
         local dodWeps = {}
+        local customweps = {}
+        local customAddonweps = {}
+        local mp1Weps = {}
         for k, v in pairs(zetaWeaponConfigTable) do            
             if k == 'CSS' then
                 cssWeps = v
@@ -741,11 +747,17 @@ zetaplayer_allowphysgun ]]
                 dodWeps = v
             elseif k == "L4D" then
                 l4dWeps = v
+            elseif k == "CUSTOM" then
+                customweps = v
+            elseif k == "ADDON" then
+                customAddonweps = v
+            elseif k == "MP1" then
+                mp1Weps = v
             else
                 gmodWeps = v
             end
         end
-        panel:Help('Change what weapons the Zetas are allowed to equip. Changing these will update live for existing Zetas. You do not have to respawn them for changes to take in effect. ')
+        panel:Help('\n\nChange what weapons the Zetas are allowed to equip. ')
 
             local box = panel:ComboBox('Spawn weapon','zetaplayer_spawnweapon')
             box:SetSortItems(false)
@@ -777,6 +789,23 @@ zetaplayer_allowphysgun ]]
             if #gmodWeps > 0 then
                 for i = 1, #gmodWeps do
                     box:AddChoice('[Misc] '..gmodWeps[i][1], gmodWeps[i][2])
+                end
+            end
+
+            box:AddSpacer()
+
+            
+            if #customAddonweps > 0 then
+                for i = 1, #customAddonweps do
+                    box:AddChoice('[Addon] '..customAddonweps[i][1], customAddonweps[i][2])
+                end
+            end
+            
+            box:AddSpacer()
+
+            if #customweps > 0 then
+                for i = 1, #customweps do
+                    box:AddChoice('[Custom] '..customweps[i][1], customweps[i][2])
                 end
             end
             
@@ -831,6 +860,14 @@ zetaplayer_allowphysgun ]]
             if #l4dWeps > 0 then
                 for i = 1, #l4dWeps do
                     box:AddChoice(l4dWeps[i][1], l4dWeps[i][2])
+                end
+            
+                box:AddSpacer()
+            end
+
+            if #mp1Weps > 0 then
+                for i = 1, #mp1Weps do
+                    box:AddChoice(mp1Weps[i][1], mp1Weps[i][2])
                 end
             
                 box:AddSpacer()
@@ -932,9 +969,29 @@ zetaplayer_allowphysgun ]]
 
         panel:CheckBox('Allow Judgement Cut','zetaplayer_allowjudgementcut')
         panel:ControlHelp('If Katana users are allowed to use Judgement Cut in combat')
+
+        panel:CheckBox("TF2 Sentry Buster Mechanics for PAIG", "zetaplayer_paig_sentrybustermode")
+        panel:ControlHelp("If PAIG should use sounds and mechanics from TF2's Sentry Buster")
+
+
+        panel:Help('--------------- Custom Addon Weapons ---------------')
+        
+        if #customAddonweps > 0 then
+            for i = 1, #customAddonweps do
+                panel:CheckBox('Allow '..customAddonweps[i][1], customAddonweps[i][3])
+                panel:ControlHelp('Allows the Zeta to equip the '..customAddonweps[i][1])
+            end
+        end
         
         
+        panel:Help('--------------- Custom Weapons ---------------')
         
+        if #customweps > 0 then
+            for i = 1, #customweps do
+                panel:CheckBox('Allow '..customweps[i][1], customweps[i][3])
+                panel:ControlHelp('Allows the Zeta to equip the '..customweps[i][1])
+            end
+        end
 
         
         
@@ -970,7 +1027,17 @@ zetaplayer_allowphysgun ]]
                 panel:ControlHelp('Allows the Zeta to equip the '..cssWeps[i][1])
             end
         end
-        
+
+        panel:CheckBox('Flashbangs Ignore Thrower','zetaplayer_flashbang_ignorethrower')
+        panel:ControlHelp("If the thrown flashbang shouldn't affect the thrower")
+
+        panel:CheckBox("Flashbangs Ignore Thrower's Friends and Teammates",'zetaplayer_flashbang_ignoreteammates')
+        panel:ControlHelp("If the thrown flashbang shouldn't affect the thrower's friends and teammates")
+
+        panel:CheckBox("Change Weapon when Thrown",'zetaplayer_cssnades_changeweapons')
+        panel:ControlHelp("If the Zetas should change their weapon once when they threw flashbang or smokegrenade")
+
+    
         
         panel:Help('--------------- TF2 Weapons ---------------')
 
@@ -1022,11 +1089,21 @@ zetaplayer_allowphysgun ]]
                 panel:ControlHelp('Allows the Zeta to equip the '..l4dWeps[i][1])
             end
         end
+
+        if #mp1Weps > 0 then
+            panel:Help('--------------- Max Payne 1 Weapons ---------------')
+            
+            for i = 1, #mp1Weps do
+                panel:CheckBox('Allow '..mp1Weps[i][1], mp1Weps[i][3])
+                local noBrackets = string.Replace(mp1Weps[i][1], "[MP1] ", "")
+                panel:ControlHelp('Allows the Zeta to equip the '..noBrackets)
+            end
+        end
         
     end)
 
     spawnmenu.AddToolMenuOption( 'Zeta Player', 'Zeta Player', 'zeta_friend', 'Friend System', "", "", function(panel) 
-        panel:Help('Change the Friend System Settings. Changing these will update live for existing Zetas. You do not have to respawn them for changes to take in effect. ')
+        panel:Help('Change the Friend System Settings.')
     
             panel:CheckBox('Enable Friend System','zetaplayer_enablefriend')
             panel:ControlHelp('If Zetas should be able to consider a player as a friend')
@@ -1039,7 +1116,12 @@ zetaplayer_allowphysgun ]]
 
             panel:CheckBox('Allow Zetas Friends with Player','zetaplayer_allowfriendswithplayers')
             panel:ControlHelp('If Zetas are allowed to be friends with the player aka you')
+
+            panel:CheckBox("No hurt","zetaplayer_nohurtfriends")
+            panel:ControlHelp('If friends should not be able to hurt each other')
             
+            panel:CheckBox("Permanent Friends Always In game","zetaplayer_permamentfriendalwaysspawn")
+            panel:ControlHelp('If your permanent friends marked in the profile panel should always be ingame if possible')
 
             panel:CheckBox("Friend List",'zetaplayer_showhwosfriendwithwho')
             panel:ControlHelp('If Name Displays should show who a zeta is friends with')
@@ -1091,289 +1173,11 @@ zetaplayer_allowphysgun ]]
     
         end)
 
-        spawnmenu.AddToolMenuOption( 'Zeta Player', 'Zeta Player', 'zeta_permanentfriend', 'Permanent Friend Profile', "", "", function(panel) 
-            panel:Help('This is where you can configure your permanent friend. NOTE! FRIEND SYSTEM MUST BE ENABLED FOR THIS TO WORK!')
 
-            panel:TextEntry( 'Permanent Friend', 'zetaplayer_permamentfriend' )
-            panel:ControlHelp('Provide a Zeta name here and whenever one spawns with this name, they will always be your friend. Note, this only works in singleplayer. You must have a name provided for any of these options to work!')
-
-            panel:CheckBox('Permanent Friend Always In-game','zetaplayer_permamentfriendalwaysspawn')
-            panel:ControlHelp('If your permanent friend should always be present in your game if it is not alive')
-
-            local gmodWeps = {}
-        local cssWeps = {}
-        local tf2Weps = {}
-        local hl1Weps = {}
-        local dodWeps = {}
-        for k, v in pairs(zetaWeaponConfigTable) do            
-            if k == 'CSS' then
-                cssWeps = v
-            elseif k == 'TF2' then
-                tf2Weps = v
-            elseif k == "HL1" then
-                hl1Weps = v
-            elseif k == "DOD" then
-                dodWeps = v
-            elseif k == "L4D" then
-                l4dWeps = v
-            else
-                gmodWeps = v
-            end
-        end
-
-            local voicepack = panel:ComboBox('Voice Pack','zetaplayer_friendvoicepack')
-            panel:ControlHelp("The Voice Pack your permanent friend should spawn using. Use console command spawnmenu_reload to update the list if you added more Voice Packs")
-
-            local _,folders = file.Find("sourceengine/sound/zetaplayer/custom_vo/*","BASE_PATH","namedesc")
-            local _,addonfolders = file.Find("sound/zetaplayer/custom_vo/*","GAME","namedesc")
-    
-            table.Merge(folders,addonfolders)
-            
-            voicepack:AddChoice("None","none",true)
-
-            
-            for _,v in ipairs(folders) do
-                local IsVP = string.find(v,"vp_")
-                if isnumber(IsVP) then
-                    local name = string.Replace(v,"vp_","")
-                    voicepack:AddChoice(name,v)
-                end
-            end
-
-            
-
-            local box = panel:ComboBox('Spawn weapon','zetaplayer_friendspawnweapon')
-            box:SetSortItems(false)
-            
-            box:AddChoice('None/Holster', 'NONE')
-            box:AddChoice("Random Weapon","RND")
-            box:AddChoice("Random Lethal Weapon","RNDLETHAL")
-            
-            box:AddSpacer()
-            
-            box:AddChoice('[HL2] Crowbar', 'CROWBAR')
-            box:AddChoice('[HL2] Stunstick', 'STUNSTICK')
-            box:AddChoice('[HL2] Pistol', 'PISTOL')
-            box:AddChoice('[HL2] 357. Revolver', 'REVOLVER')
-            box:AddChoice('[HL2] SMG1', 'SMG')
-            box:AddChoice('[HL2] AR2', 'AR2')
-            box:AddChoice('[HL2] Shotgun', 'SHOTGUN')
-            box:AddChoice('[HL2] Crossbow','CROSSBOW')
-            box:AddChoice('[HL2] RPG', 'RPG')
-            box:AddChoice("[HL2] Grenade","GRENADE")
-            
-            box:AddSpacer()
-            
-            box:AddChoice('[Misc] Fists','FIST')
-            box:AddChoice('[Misc] Physics Gun', 'PHYSGUN')
-            box:AddChoice('[Misc] Toolgun', 'TOOLGUN')
-            box:AddChoice('[Misc] Camera','CAMERA')
-            box:AddChoice("[Misc] Junk Launcher","JPG")
-            if #gmodWeps > 0 then
-                for i = 1, #gmodWeps do
-                    box:AddChoice('[Misc] '..gmodWeps[i][1], gmodWeps[i][2])
-                end
-            end
-            
-            box:AddSpacer()
-            
-            box:AddChoice('[CS:S] Knife','KNIFE')
-            box:AddChoice("[CS:S] Desert Eagle","DEAGLE")
-            box:AddChoice("[CS:S] MP5","MP5")
-            box:AddChoice('[CS:S] M4A1','M4A1')
-            box:AddChoice("[CS:S] AK47","AK47")
-            box:AddChoice('[CS:S] AWP','AWP')
-            box:AddChoice("[CS:S] M249 Machine Gun","MACHINEGUN")
-            if #cssWeps > 0 then
-                for i = 1, #cssWeps do
-                    box:AddChoice('[CS:S] '..cssWeps[i][1], cssWeps[i][2])
-                end
-            end
-            
-            box:AddSpacer()
-            
-            box:AddChoice('[TF2] Wrench','WRENCH')
-            box:AddChoice("[TF2] Pistol","TF2PISTOL")
-            box:AddChoice("[TF2] Shotgun","TF2SHOTGUN")
-            box:AddChoice('[TF2] Scatter Gun','SCATTERGUN')
-            box:AddChoice("[TF2] Sniper Rifle","TF2SNIPER")
-            if #tf2Weps > 0 then
-                for i = 1, #tf2Weps do
-                    local wepStr = string.Replace(tf2Weps[i][1], 'TF2 ', '')
-                    box:AddChoice('[TF2] '..wepStr, tf2Weps[i][2])
-                end
-            end
-            
-            box:AddSpacer()
-            
-            if #hl1Weps > 0 then
-                for i = 1, #hl1Weps do
-                    local wepStr = string.Replace(hl1Weps[i][1], 'HL1 ', '')
-                    box:AddChoice('[HL1] '..wepStr, hl1Weps[i][2])
-                end
-            
-                box:AddSpacer()
-            end
-            
-            if #dodWeps > 0 then
-                for i = 1, #dodWeps do
-                    box:AddChoice('[DOD:S] '..dodWeps[i][1], dodWeps[i][2])
-                end
-            
-                box:AddSpacer()
-            end
-            
-            if #l4dWeps > 0 then
-                for i = 1, #l4dWeps do
-                    box:AddChoice(l4dWeps[i][1], l4dWeps[i][2])
-                end
-            
-                box:AddSpacer()
-            end
-
-            panel:TextEntry("Override Model","zetaplayer_friendoverridemodel")
-            panel:ControlHelp("Override the model of your permanent friend.\n\nPut a model path here. You can add multiple model paths by adding a , between them.\nEXAMPLE: models/player/combine_soldier.mdl,models/player/breen.mdl")
-
-
-
-            panel:NumSlider("Friend Spawning Health", "zetaplayer_friendhealth", 1, 10000, 0)
-            panel:ControlHelp("The amount of health your friend should spawn with")
-
-            panel:NumSlider("Friend Spawning Armor", "zetaplayer_friendarmor", 0, 10000, 0)
-            panel:ControlHelp("The amount of armor your friend should spawn with")
-
-            
-            panel:CheckBox('Is Admin','zetaplayer_friendisadmin')
-            panel:ControlHelp("If your permanent friend should be a Admin")
-
-            panel:TextEntry("Friend Profile Picture","zetaplayer_friendprofilepicture")
-            panel:ControlHelp("The profile picture your friend should have. Provide the custom profile picture file name and you must include the file extension Example: johnfreeman.png\nLeave blank for random")
-
-            panel:CheckBox('Custom Idle Lines only','zetaplayer_friendcustomidlelinesonly')
-            panel:ControlHelp("If your permanent friend should only use your custom Idle lines")
-
-            panel:CheckBox('Custom Death Lines only','zetaplayer_friendcustomdeathlinesonly')
-            panel:ControlHelp("If your permanent friend should only use your custom Death lines")
-
-            panel:CheckBox('Custom Kill Lines only','zetaplayer_friendcustomkilllinesonly')
-            panel:ControlHelp("If your permanent friend should only use your custom Kill lines")
-
-            panel:CheckBox('Custom Taunt Lines only','zetaplayer_friendcustomtauntlinesonly')
-            panel:ControlHelp("If your permanent friend should only use your custom Taunt lines")
-
-            panel:CheckBox('Custom Witness Lines only','zetaplayer_friendcustomwitnesslinesonly')
-            panel:ControlHelp("If your permanent friend should only use your custom Witness lines")
-
-            panel:CheckBox('Custom Panic Lines only','zetaplayer_friendcustompaniclinesonly')
-            panel:ControlHelp("If your permanent friend should only use your custom Panic lines")
-
-            panel:CheckBox('Custom Assist Lines only','zetaplayer_friendcustomassistlinesonly')
-            panel:ControlHelp("If your permanent friend should only use your custom Assist lines")
-
-            panel:CheckBox('Custom Laughing Lines only','zetaplayer_friendcustomlaughlinesonly')
-            panel:ControlHelp("If your permanent friend should only use your custom Laughing lines")
-
-            panel:CheckBox('Custom Admin Scolding Lines only','zetaplayer_friendcustomadminscoldlinesonly')
-            panel:ControlHelp("If your permanent friend should only use your custom Admin Scolding lines")
-            
-            panel:CheckBox('Custom Sit Response Lines only','zetaplayer_friendcustomsitrespondlinesonly')
-            panel:ControlHelp("If your permanent friend should only use your custom Sit Response lines")
-
-            panel:CheckBox('Custom Falling Lines only','zetaplayer_friendcustomfallinglinesonly')
-            panel:ControlHelp("If your permanent friend should only use your custom Falling lines")
-
-            panel:CheckBox('Custom Convo Question Lines only','zetaplayer_friendcustomquestionlinesonly')
-            panel:ControlHelp("If your Custom Convo Question Lines should only be used. These are used for when two Zetas talk to each other")
-
-            panel:CheckBox('Custom Convo Respond Lines only','zetaplayer_friendcustomrespondlinesonly')
-            panel:ControlHelp("If your Custom Convo Respond Lines should only be used. These are used for when two Zetas talk to each other")
-
-            panel:CheckBox('Custom Media Watch Lines only','zetaplayer_friendcustommediawatchlinesonly')
-            panel:ControlHelp("If your permanent friend should only use your custom media watch lines")
-            
-
-
-
-            
-            
-            
-            
-            
-
-            panel:Help("Your Friend's Playermodel Color")
-            panel:CheckBox('Use Custom Playermodel Color','zetaplayer_friendusecustomcolors')
-            panel:ControlHelp("If your permanent friend should use the color you provide here")
-            local colorpanel = vgui.Create('DColorMixer')
-            panel:AddItem(colorpanel)
-            colorpanel:SetParent(panel)
-            colorpanel:SetConVarR('zetaplayer_friendplayermodelcolorR')
-            colorpanel:SetConVarG('zetaplayer_friendplayermodelcolorG')
-            colorpanel:SetConVarB('zetaplayer_friendplayermodelcolorB')
-
-            panel:Help("Your Friend's Physics Gun Color")
-            panel:CheckBox('Use Custom Physics Gun Color','zetaplayer_friendusephysguncolor')
-            panel:ControlHelp("If your permanent friend should use the color you provide here")
-            local colorpanel = vgui.Create('DColorMixer')
-            panel:AddItem(colorpanel)
-            colorpanel:SetParent(panel)
-            colorpanel:SetConVarR('zetaplayer_friendphysguncolorR')
-            colorpanel:SetConVarG('zetaplayer_friendphysguncolorG')
-            colorpanel:SetConVarB('zetaplayer_friendphysguncolorB')
-            
-
-            panel:Help('--- permanent Friend Personality ---')
-                
-            local box = panel:ComboBox('Personality Type','zetaplayer_friendpersonalitytype')
-            box:AddChoice('Random', 'random')
-            box:AddChoice('Builder', 'builder')
-            box:AddChoice('Aggressor', 'berserk')
-            box:AddChoice('Custom', 'custom')
-            box:AddChoice('Random +', 'random++')
-
-            panel:Help('Builder Type is more focused on building than fighting but is generally friendly.\n Aggressor is more focused on attacking.\n Custom enables the custom sliders below.\n Random is a limited random generated personality.\n Random + is purely random generated personality')
-
-            
-            panel:Help('You MUST have the personality type set to Custom for these sliders to apply! 0 will never be picked. 100 will have the highest chance of being picked')
-            panel:NumSlider('Build Chance','zetaplayer_friendbuildchance',0,100,0)
-            panel:NumSlider('Tool Chance','zetaplayer_friendtoolchance',0,100,0)
-            panel:NumSlider('Physgun Chance','zetaplayer_friendphysgunchance',0,100,0)
-            panel:NumSlider('Combat Chance','zetaplayer_friendcombatchance',0,100,0)
-            panel:NumSlider('Disrespect Chance','zetaplayer_frienddisrespectchance',0,100,0)
-            panel:NumSlider('Watch Media Player Chance','zetaplayer_friendwatchmediaplayerchance',0,100,0)
-            panel:NumSlider('Friendly Chance','zetaplayer_friendfriendlychance',0,100,0)
-            panel:NumSlider('Voice Chance','zetaplayer_friendvoicechance',0,100,0)
-            panel:NumSlider('Text Chance','zetaplayer_friendtextchance',0,100,0)
-            panel:NumSlider('Vehicle Chance','zetaplayer_friendvehiclechance',0,100,0)
-            panel:ControlHelp('Friendly Chance is the decision type where a Zeta can do a friendly action such as healing other Zetas/Players. Voice Chance is the chance they will speak after every 5 seconds. Vehicle Chance is the chance where a zeta will find a vehicle or spawn a vehicle and drive it. Typically you want this at a low chance such as under 10.')
-                
-                
-            end)
 
     spawnmenu.AddToolMenuOption( 'Zeta Player', 'Zeta Player', 'zeta_voice', 'Voice Options', "", "", function(panel) 
-        panel:Help('Zeta Voice Options. Changing these will update live for existing Zetas. You do not have to respawn them for changes to take in effect. ')
+        panel:Help('Zeta Voice Options')
 
-            local box = panel:ComboBox("Voice DSP","zetaplayer_voicedsp")
-            box:AddChoice("Clear Voice (Normal)","normal")
-            box:AddChoice("Small Microphone","smallmic")
-            box:AddChoice("Very Small Microphone","vsmallmic")
-            box:AddChoice("Tiny Microphone","tinymic")
-            box:AddChoice("Echoey Room","echoroom")
-            box:AddChoice("Echoey Room 2","echoroom2") 
-            box:AddChoice("Concrete Room","concroom") 
-            box:AddChoice("Bright","bright") 
-            box:AddChoice("Tunnel","tunnel") 
-            box:AddChoice("Big","big") 
-            box:AddChoice("Random Voice DSP","random")
-
-            
-            panel:ControlHelp('DSP effect to use over the Zeta voices. You can simulate garbage mic sounds with these. DSPs can be unstable at times and crash your game. Only happens rarely however if you are concerned about this, keep the DSP at clear voice')
-    
-            
-            panel:CheckBox('Limit DSP','zetaplayer_limitdsp')
-            panel:ControlHelp("Limits the amount of Zetas that can have DSP effects. TURN THIS OFF AT YOUR OWN RISK! This is supposed to keep source from crashing because of all the sounds it has to process!")
-
-            panel:NumSlider("DSP Limit","zetaplayer_dsplimit",1,7,0)
-            panel:ControlHelp('The amount of Zetas that are allowed to have DSP effects. Set this lower if DSP instability is still crashing you')
 
             panel:CheckBox('Use Alternate Death Sounds','zetaplayer_usealternatedeathsounds')
             panel:ControlHelp('If killed Zetas should use their alternate death sounds. Off by default')
@@ -1408,12 +1212,14 @@ zetaplayer_allowphysgun ]]
             panel:ControlHelp("The chance a Zeta will spawn with a voice pack")
             
 
-            panel:CheckBox('Use Voice Chat/Popups V.2','zetaplayer_usenewvoicechatsystem')
-            panel:ControlHelp("If Speaking Zetas should use the new voice chat system. This lets voice popups light up green as a Zeta speaks. The coder stated that this causes microfreezes for his pc so this may cause microfreezes when a Zeta speaks. This requires Use Voice Popups in order to work! NOTE! Sound files that are Stereo and NOT Mono will print out a small error in console while Global Voices is turned off! Make sure you make those files are mono! | Community Contribute")
+            panel:CheckBox('Use Voice Chat V.2','zetaplayer_usenewvoicechatsystem')
+            panel:ControlHelp("If Zetas should use the Voice Chat V.2 System\n\nThis system changes the popups in a way so they light up green whenever a zeta speaks much like real voice chat.\nNote that this system is seperate from source which means it will have its own issues. Make sure any custom files you have is mono and not stereo or they won't work")
 
             panel:NumSlider('Voice Pop up Distance','zetaplayer_voicepopupdrawdistance',0,15000,0)
             panel:ControlHelp("If a speaking zeta speaks within this distance their voice pop up will show up when Global Voices is off if farther, then their pop up won't show up.\nSet this to 0 for the popups to always show up regardless of distance")
 
+            panel:CheckBox("Voice Popup Use Team Color", "zetaplayer_voicepopup_useteamcolor")
+            panel:ControlHelp("If speaking Zeta's voicechat popup should use its team color when currently in team")
 
             panel:NumSlider("Voice Popup X","zetaplayer_voicepopup_x",1.17,100,2)
             panel:NumSlider("Voice Popup Y","zetaplayer_voicepopup_y",1.15,100,2)
@@ -1421,15 +1227,15 @@ zetaplayer_allowphysgun ]]
 
             panel:CheckBox('Global Voices','zetaplayer_globalvoicechat')
             panel:ControlHelp("If speaking Zeta voices should be heard globally much like real players")
-            
+
+            panel:NumSlider("Voice Chat Limit","zetaplayer_maxspeakingzetas",0,100,0)
+            panel:ControlHelp("The max amount of Zetas that can speak at once in voice chat. Leave at 0 for no limit")
+
             
             panel:CheckBox('Enable Laughing','zetaplayer_allowlaughing')
             panel:ControlHelp("Enable the ability to laugh at dead people")
             --panel:NumSlider( 'Laughing Chance', 'zetaplayer_laughingchance', 0, 100,1 )
             --panel:ControlHelp("The chance a Zeta will laugh at someone dying")
-
-            panel:CheckBox('Allow Pain Voice','zetaplayer_allowpainvoice')
-            panel:ControlHelp("If Zetas should make pain sounds when hurt")
 
             panel:CheckBox('Allow Panic Voice','zetaplayer_allowpanicvoice')
             panel:ControlHelp("If Zetas should make panic sounds when they panic")
@@ -1515,7 +1321,7 @@ zetaplayer_allowphysgun ]]
 
 
     spawnmenu.AddToolMenuOption( 'Zeta Player', 'Zeta Player', 'zeta_personality', 'Personality Options', "", "", function(panel) 
-        panel:Help('These options can control what type of decision the Zetas will favor in picking. Note, you have to respawn the Zetas for this to take effect!')
+        panel:Help('These options can control what type of decision the Zetas will favor in picking. Note, you have to respawn the Zetas for this to take effect!\n\nAnother note! These settings do not effect natural Zetas! Look in Map Wide Spawning for Personality Settings for natural zetas')
 
             panel:CheckBox("Use New Chance System","zetaplayer_usenewchancesystem")
             panel:ControlHelp("If the new Chance system should be used\n\nThe new Chance system will sort chances from highest to lowest and will test each chance from highest to lowest\n\nThe old system uses a priority type thing where it only tests the chances in a predefined order.\n\nThis will change how the Zetas behave drastically")
@@ -1545,8 +1351,236 @@ zetaplayer_allowphysgun ]]
                 
         end)
 
+
+        spawnmenu.AddToolMenuOption( 'Zeta Player', 'Zeta Player', 'zeta_statusinfo', 'Zeta Stats', "", "", function(panel) 
+            panel:Help("Note: Use Refresh Button at the bottom to refresh the stats\n\n")
+            
+
+            
+            local killcountlabel = panel:Help("Zetas Killed in Total: 0\n")
+
+            local connectcountlabel = panel:Help("Total Zeta Connects (Spawned): 0\n")
+
+            local propcountlabel = panel:Help("Total Props Spawned: 0\n")
+
+            local timeplayedlabel = panel:Help("Time Played with Zetas: Not Available")
+
+            
+            
+
+            panel:Help("\n\n")
+
+            local leadingzeta = panel:Help("Top Leading Zeta: Currently Not Available\n")
+            leadingzeta:SetColor( Color(0,255,0) )
+
+            local secondleadingzeta = panel:Help("Second Leading Zeta: Currently Not Available\n")
+            secondleadingzeta:SetColor( Color(14,127,172) )
+
+            local thirdleadingzeta = panel:Help("Third Leading Zeta: Currently Not Available\n")
+            thirdleadingzeta:SetColor( Color(139,96,38) )
+
+            panel:Help("\n\n")
+
+            local absoluteworstzeta = panel:Help("Top Most Killed Zeta: Currently Not Available\n")
+            absoluteworstzeta:SetColor( Color(255,0,0) )
+
+            local secondworstzeta = panel:Help("Second Most Killed Zeta: Currently Not Available\n")
+            secondworstzeta:SetColor( Color(194,182,11) )
+
+            local thirdworstzeta = panel:Help("Third Most Killed Zeta: Currently Not Available\n")
+            thirdworstzeta:SetColor( Color(124,27,116) )
+        
+
+            panel:Help("-----------------------------------------------\n\n")
+
+            local firstweapon = panel:Help("Most Popular Weapon: Currently Not Available\n")
+            firstweapon:SetColor( Color(0,255,0) )
+
+            local secondweapon = panel:Help("Second Popular Weapon: Currently Not Available\n")
+            secondweapon:SetColor( Color(14,127,172) )
+
+            local thirdweapon = panel:Help("Third Popular Weapon: Currently Not Available\n")
+            thirdweapon:SetColor( Color(139,96,38) )
+
+
+
+            local function BuildStats()
+                if !file.Exists("zetaplayerdata/zetastats.json","DATA") then
+                    ZetaFileWrite("zetaplayerdata/zetastats.json","[]")
+                end
+
+                local zetastats = file.Read("zetaplayerdata/zetastats.json")
+                local scroll
+
+                if zetastats then
+                    zetastats = util.JSONToTable(zetastats)
+
+                    local killcount = zetastats["kills"] or 0
+
+                    killcount = string.Comma( killcount )
+
+                    killcountlabel:SetText("Zetas Killed in Total: "..killcount)
+
+                    local propcount = zetastats["spawnedpropscount"] or 0
+
+                    propcount = string.Comma( propcount )
+
+                    propcountlabel:SetText("Total Props Spawned: "..propcount)
+
+                    local connectcount = zetastats["connectcount"] or 0
+                    
+                    connectcount = string.Comma( connectcount )
+
+                    connectcountlabel:SetText("Total Zeta Connects (Spawned): "..connectcount)
+
+                    local function Plural(num,str)
+                        return (num > 1 and str.."s" or str)
+                    end
+
+                    if zetastats["timeplayed"] then
+                        local timetbl = string.FormattedTime( zetastats["timeplayed"] )
+                        local timestring = ""..timetbl.h..Plural(timetbl.h," hour").." : "..timetbl.m..Plural(timetbl.m," minute").." : "..timetbl.s..Plural(timetbl.s," second")
+                        timeplayedlabel:SetText("Time Played with Zetas: "..timestring)
+                    end
+
+                    if zetastats["topzetas"] then
+                        local topzetas = zetastats["topzetas"]
+                        local index = 1
+
+                        for k,v in SortedPairsByValue( topzetas, true ) do
+                            local plural = (v > 1 and "kills" or "kill")
+                            if index == 1 then
+                                leadingzeta:SetText("Top Leading Zeta: "..k.." with "..v.." "..plural.."\n")
+                            end
+
+                            if index == 2 then
+                                secondleadingzeta:SetText("Second Leading Zeta: "..k.." with "..v.." "..plural.."\n")
+                            end
+
+                            if index == 3 then
+                                thirdleadingzeta:SetText("Third Leading Zeta: "..k.." with "..v.." "..plural.."\n")
+                                break
+                            end
+                            index = index + 1
+                        end
+
+                    end
+
+                    if zetastats["mostdeaths"] then
+                        local worstzetas = zetastats["mostdeaths"]
+                        local index = 1
+
+                        for k,v in SortedPairsByValue( worstzetas, true ) do
+                            local plural = (v > 1 and "deaths" or "death")
+                            if index == 1 then
+                                absoluteworstzeta:SetText("Top Most Killed Zeta: "..k.." with "..v.." "..plural.."\n")
+                            end
+
+                            if index == 2 then
+                                secondworstzeta:SetText("Second Most Killed Zeta: "..k.." with "..v.." "..plural.."\n")
+                            end
+
+                            if index == 3 then
+                                thirdworstzeta:SetText("Third Most Killed Zeta: "..k.." with "..v.." "..plural.."\n")
+                                break
+                            end
+                            index = index + 1
+                        end
+                    end
+
+
+                    
+                    
+                    
+
+
+                    if zetastats["popularweapons"] then
+                        local popularweapons = zetastats["popularweapons"]
+                        local index = 1
+
+                        
+                        local ignoredweapons = {
+                            ["Toolgun"] = true,
+                            ["Physics Gun"] =  true,
+                            ["Grenade"] = true,
+                            ["Smoke Grenade"] = true,
+                            ["Flashbang Grenade"] = true,
+                            ["Holster"] = true                          
+                        }
+
+                        for k,v in SortedPairsByValue( popularweapons, true ) do
+                            if ignoredweapons[k] then continue end -- Certain weapons need to be ignored
+                            if index == 1 then
+                                firstweapon:SetText("Most Popular Weapon: "..k.."\n")
+                            end
+
+                            if index == 2 then
+                                secondweapon:SetText("Second Popular Weapon: "..k.."\n")
+                            end
+
+                            if index == 3 then
+                                thirdweapon:SetText("Third Popular Weapon: "..k.."\n")
+                                break
+                            end
+                            index = index + 1
+                        end
+
+                        scroll = vgui.Create("DScrollPanel")
+                        scroll:SetSize(400,400)
+                        panel:AddItem(scroll)
+
+                        local lab = vgui.Create("DLabel",scroll)
+                        lab:SetText("-- Weapon Use Counts --")
+                        lab:Dock( TOP )
+                        lab:DockMargin( 0, 0, 0, 5 )
+                        scroll:AddItem(lab)
+
+                        for k,v in SortedPairsByValue(popularweapons,true) do
+                            local lab = vgui.Create("DLabel",scroll)
+                            lab:SetText("   "..k..": "..v)
+                            lab:Dock( TOP )
+                            lab:DockMargin( 0, 0, 0, 5 )
+                            scroll:AddItem(lab)
+                        end
+
+                        local lab = vgui.Create("DLabel",scroll)
+                        lab:SetText("-- ---------- --")
+                        lab:Dock( TOP )
+                        lab:DockMargin( 0, 0, 0, 5 )
+                        scroll:AddItem(lab)
+
+                    end
+
+
+                end
+
+                local newline = panel:Help("\n\n")
+                
+                local refresh = vgui.Create("DButton")
+                panel:AddItem(refresh)
+                refresh:SetText("Refresh")
+    
+                function refresh:DoClick()
+
+                    if IsValid(scroll) then
+                        scroll:Remove()
+                    end
+
+                    newline:Remove()
+                    refresh:Remove()
+                    BuildStats()
+                end
+            end
+
+            BuildStats()
+
+
+
+
+        end)
+
     spawnmenu.AddToolMenuOption( 'Zeta Player', 'Zeta Player', 'zeta_combatpermissions', 'Combat Options', "", "", function(panel) 
-        panel:Help('Changing these will update live for existing Zetas. You do not have to respawn them for changes to take in effect. Ignore Players (ai_ignoreplayers) will make Zetas not attack players.')
+        panel:Help('Ignore Players (ai_ignoreplayers) will make Zetas not attack players.')
 
             panel:CheckBox('Allow Random attacking','zetaplayer_allowattacking')
             panel:ControlHelp('If the Zeta is allowed to randomly attack people')
@@ -1556,6 +1590,11 @@ zetaplayer_allowphysgun ]]
 
             panel:CheckBox('Allow Defending Others','zetaplayer_allowdefendothers')
             panel:ControlHelp('If Zetas should Help other Zetas or Players from something that is attacking them')
+
+            panel:CheckBox("Enable Experimental Combat Behaviour", "zetaplayer_experimentalcombat")
+            panel:ControlHelp("Enables the experimental combat behavior for zetas. This makes them take cover if they're low on ammo, strafe more aggresive and etc.")
+            panel:ControlHelp("The reason why this is a toggleable feature is because it might cause some performance issues")
+            panel:ControlHelp("More features might come with updates such as avoiding grenades and optimizations")
             
 
             panel:NumSlider( 'Panic Threshold', 'zetaplayer_panicthreshold', 0, 1,2 )
@@ -1563,6 +1602,12 @@ zetaplayer_allowphysgun ]]
 
             panel:CheckBox('Allow Panic Bhop','zetaplayer_allowpanicbhop')
             panel:ControlHelp('If Zetas panicking should bhop while running')
+
+            panel:CheckBox('Flee from Sanic Type Nextbots','zetaplayer_fleefromsanics')
+            panel:ControlHelp("If Zetas should run away from sanic type nextbots")
+
+            panel:CheckBox('Flee from DRG Nextbots','zetaplayer_fleefromdrgbasenextbots')
+            panel:ControlHelp("If Zetas should run away from DRG nextbots")
             
 
             panel:CheckBox('Ignore other Zetas','zetaplayer_ignorezetas')
@@ -1580,11 +1625,20 @@ zetaplayer_allowphysgun ]]
             panel:NumSlider('Missile Inaccuracy','zetaplayer_missileinaccuracy',0,5000,0)
             panel:ControlHelp('The inaccuracy of directed missiles') ]]
 
-            panel:NumSlider('Combat Inaccuracy','zetaplayer_combatinaccuracy',-3,3,3)
-            panel:ControlHelp('The inaccuracy of Zetas using guns. Increasing this increases their inaccuracy and decreasing increases their accuracy. Set this to 0 for normal accuracy')
+            panel:CheckBox('Real Player-like Damage Scaling', 'zetaplayer_userealplayerdmgscale')
+            panel:ControlHelp("If damage dealt to Zetas should scale like the real players one do.")     
+
+            panel:NumSlider('Accuracy Level','zetaplayer_combataccuracylevel',0,4,0)
+            panel:ControlHelp('How accurate can a Zeta be. 1 is least accurate and 4 is the most accurate. Set to 0 for random accuracy between Zetas')
             
             panel:NumSlider('Damage divider ','zetaplayer_damagedivider',1,10,0)
             panel:ControlHelp('The amount damage should be divided by')
+
+            panel:NumSlider('Armor Absorption Percent','zetaplayer_armorabsorbpercent', 1, 100, 0)
+            panel:ControlHelp("How much percent of the damage should zeta's armor absorb")
+
+            panel:NumSlider("Damage Force Add","zetaplayer_forceadd",0,10000,0)
+            panel:ControlHelp('The amount to add on to Damage Force. Essentially makes dead bodies fly further when shot by bullets')
 
 
             panel:CheckBox('Always Hunt','zetaplayer_alwayshuntfortargets')
@@ -1592,31 +1646,103 @@ zetaplayer_allowphysgun ]]
 
             panel:CheckBox('Always Target NPCs','zetaplayer_alwaystargetnpcs')
             panel:ControlHelp('If Zetas should always attack npcs regardless of combat chance')
+
+            panel:NumSlider('Grenade Throw Chance', 'zetaplayer_grenade_throwchance', 1, 100, 0)
+            panel:ControlHelp('The chance of Zetas to throw a grenade while in-combat or panicking')
+
+            panel:CheckBox('Switch to Throw Grenade', 'zetaplayer_grenade_switchtoweapon')
+            panel:ControlHelp('If the Zetas should switch to the grenade weapon in order to throw it instead of using the quicknade method')
             
             
     end)
 
     spawnmenu.AddToolMenuOption( 'Zeta Player', 'Zeta Player', 'zeta_spawnmenupermissions', 'Building/Spawning Options', "", "", function(panel) 
-        panel:Help('Changing these will update live for existing Zetas. You do not have to respawn them for changes to take in effect')
 
-            panel:CheckBox('Allow Spawnmenu','zetaplayer_allowspawnmenu')
-            panel:ControlHelp('If the Zeta is allowed to use its spawnmenu to spawn props. Note that all props spawned by Zetas will automatically freeze after a small amount of time. This is to help with lag. NOTE: Limits effect per Zeta! Meaning each Zeta has their own limit!' )
+            panel:CheckBox('Allow Spawning of Props','zetaplayer_allowprops')
+            panel:ControlHelp('If Zetas are allowed to spawn props' )
+
+            panel:CheckBox('Allow Medkits','zetaplayer_allowmedkits')
+            panel:ControlHelp('If Zetas are allowed to spawn medkits to heal themselves or others' )
+
+            panel:CheckBox('Allow Armor Batteries','zetaplayer_allowarmorbatteries')
+            panel:ControlHelp('If Zetas are allowed to spawn armor batteries to charge themselves or others' )
+            
+
+            panel:CheckBox('Allow Spawning of Entities','zetaplayer_allowentities')
+            panel:ControlHelp('If the Zeta is allowed to spawn Entities. This is off by default' )
+
+            panel:CheckBox('Allow Spawning of NPCS','zetaplayer_allownpcs')
+            panel:ControlHelp('If the Zeta is allowed to spawn NPCs. This is off by default' )
 
             panel:CheckBox('Allow Vehicles','zetaplayer_allowvehicles')
             panel:ControlHelp('If Zetas are allowed to drive or sit in vehicles')
 
-            panel:CheckBox('Allow Spawning of Entities','zetaplayer_allowentities')
-            panel:ControlHelp('If the Zeta is allowed to spawn Entities. This is off by default' )
-            panel:CheckBox('Allow Spawning of NPCS','zetaplayer_allownpcs')
-            panel:ControlHelp('If the Zeta is allowed to spawn NPCs. This is off by default' )
-
-            panel:NumSlider( 'Prop Limit', 'zetaplayer_proplimit', 1, 500,0 )
+            panel:NumSlider( 'Prop Limit', 'zetaplayer_proplimit', 1, 5000,0 )
             panel:NumSlider( 'SENT Limit', 'zetaplayer_sentlimit', 1, 200,0 )
             panel:NumSlider( 'NPC Limit', 'zetaplayer_npclimit', 1, 100,0 )
 
+            panel:Help("------ Building System ------")
+
+            panel:CheckBox("Allow Duplications", "zetaplayer_building_allowduplications")
+            panel:ControlHelp("If Zetas are allowed to spawn/build duplications.\n\nNote that dupes will be effected by the prop limit!\n\nThis requires the Toolgun and Physics Gun to be allowed!")
+
+            panel:CheckBox("Use Your Dupes", "zetaplayer_building_useplayerdupes")
+            panel:ControlHelp("If Zetas are allowed to use any and all dupes you have. Turn this off if you wish for them to only use dupes from the zetaplayerdata/duplications folder")
+
+            panel:CheckBox("Place Dupes In Open Areas","zetaplayer_building_placedupesinopenareas")
+            panel:ControlHelp("If Zetas should try to place dupes in more open areas")
+
+            panel:CheckBox("No Collide Entities", "zetaplayer_building_nocollideprops")
+            panel:ControlHelp("If Zetas manually building a dupe should no collide their props or entities before placing them into position")
+
+            panel:CheckBox("Allow Adding Onto Props","zetaplayer_building_allowaddingontoprops")
+            panel:ControlHelp("If Zetas are allowed to place props on other props and weld them")
+
+
+            
+            panel:NumSlider("Dupe Build Mode","zetaplayer_building_dupebuildmode",0,2,0)
+            panel:ControlHelp("How should the zetas build dupes\n\n0 is for random between manual building and toolgun spawned dupes\n1 is for manual building only\n2 is for toolgun spawned dupes only")
+
+            panel:NumSlider("Dupe Cooldown","zetaplayer_building_dupecooldown",0,1000,0)
+            panel:ControlHelp("The time in seconds before a zeta can place another dupe")
+
+            panel:Help("\n\n")
+
+            panel:TextEntry("Build Constraint Sound","zetaplayer_building_buildconstraintsound")
+            panel:ControlHelp("The Sound that will play when a Constraint is created in a dupe")
+
+            panel:TextEntry("Build Entity Sound","zetaplayer_building_buildentitysound")
+            panel:ControlHelp("The Sound that will play when a Entity is created in a dupe")
+
+            panel:TextEntry("Dupe Finish Sound","zetaplayer_building_finishdupesound")
+            panel:ControlHelp("The Sound that will play when a dupe is completed")
+            
+
+
+
+            panel:Help("------ ---------- ------")
+
             panel:CheckBox('Allow Use+ on Props','zetaplayer_allowuse+onprops')
             panel:ControlHelp('If Zetas are allowed to use a simulated use+ pickup on props' )
+
+
+            panel:CheckBox('Allow Sprays','zetaplayer_allowsprays')
+            panel:ControlHelp("If Zetas are allowed to use Sprays. To add sprays, go into this path, Garrysmod/garrysmod/data/zetaplayerdata/custom_sprays\nInside that folder is where you can put .PNG and .JPG images in. You do not have to have specific names | Community Contribute")
             
+            panel:CheckBox('Player Sized Sprays','zetaplayer_playersizedsprays')
+            panel:ControlHelp("If Sprays should have the same size as a real player's spray. Turn this off for the old method ")
+            
+            panel:CheckBox('Server Junk','zetaplayer_serverjunk')
+            panel:ControlHelp("If Props should spawn on the map when you first load into a map. Only works in singleplayer and requires a Navigation Mesh!")
+
+            panel:CheckBox('Freeze server Junk','zetaplayer_freezeserverjunk')
+            panel:ControlHelp("If server junk should spawn frozen")
+            
+            panel:NumSlider("Prop count","zetaplayer_serverjunkcount",1,400,0)
+            panel:ControlHelp("How many props should be spawned by Server junk")
+            
+            panel:Button("Create Server Junk","zetaplayer_createserverjunk")
+            panel:ControlHelp("Spawn junk around the map. The amount is determined by Prop Count")
 
             
             panel:CheckBox('Allow Physgun On Non World','zetaplayer_allowphysgunnonworld')
@@ -1654,25 +1780,32 @@ zetaplayer_allowphysgun ]]
     end)
 
 
-        local names = file.Read("zetaplayerdata/names.json")
+--[[         local names = file.Read("zetaplayerdata/names.json")
         local news = file.Read("zetaplayerdata/rgsn.json")
         local rndzeta
         if news then
             newstbl = util.JSONToTable(news)
-            rndevent = newstbl[math.random(#newstbl)]
+            if rndevent then
+                rndevent = newstbl[math.random(#newstbl)]
+            end
         end
         if names then
             nametbl = util.JSONToTable(names)
-            rndzeta = nametbl[math.random(#nametbl)]
-        end
+            if nametbl then
+                rndzeta = nametbl[math.random(#nametbl)]
+            end
+        end ]]
 
 
     spawnmenu.AddToolMenuOption( 'Zeta Player', 'Zeta Player', 'zeta_aboutpage', 'About and Credits', "", "", function(panel) 
         panel:Help('---- Zeta Players ----\n-- Created by StarFrost --')
 
-        panel:Help("Current Release Version: 5.1.2")
+        panel:Help("Current Release Version: 5.3.5")
 
-        panel:Help("Current Development Stage: Final Stage")
+        panel:Help("Current Development Stage: Completed\n\nMarch 5th, 2022 the day when Zeta Players were released to the public and now it has been several months from that day with the last on schedule update. Since then, the Zeta's have received a total of 197 updates including this update. I have kept my promise that I would complete the Zetas by reaching the Building System update. Thank you for being with me on this journey\n\nThis does not mean there will no longer be updates. Updates will only come if I feel like adding new stuff to the Zetas.")
+
+        local Portal_EndingThing_Thankyou = panel:Help("\n\nThis was a triumph\nI'm making a note here, Huge Success.\nIt's hard to overstate my satisfaction.\nZeta Players.\nWe screw around because we can.\nFor the satisfaction of playing sandbox, except the ones who play other modes.\nBut there's no sense crying over every troll.\nYou just keep on playing 'til you run out of energy.\nAnd the builds gets done, and you make a neat gun.\nFor the people who are having fun\n\n")
+        Portal_EndingThing_Thankyou:SetColor(Color(255,238,0))
 
         panel:Help("StarFrost's Youtube Page: https://www.youtube.com/channel/UCu_7jXrDackiI85ABzd0CKA")
 
@@ -1680,7 +1813,9 @@ zetaplayer_allowphysgun ]]
 
         panel:Help("Special Thanks to,\n:\n:* Everyone who has provided error reports, suggestions and support for the Zetas and me!\n:\n:* Erma202 for many talented contributes to the Zetas!\n:\n:*Pyri for contributing to the Zetas with many weapons!\n:\n:*You for playing Sandbox with the Zetas\n:\n:* Based Kleiner for being the best Zeta\n:\n:* PaperClip's MingeBag E2 for sparking the inspiration back in 2016")
 
-
+        local epicpeople = panel:Help("\n\nEven more Special Thanks to,\n\n:- cots\n\n:- Knocky\n\n:- Fewxay\n\n:- SlimyPinkSlime\n\n:- Alteff\n\n For being kind enough to donate some of their money towards me. Thank You!")
+        epicpeople:SetColor(Color(0,255,242))
+--[[ 
             if rndzeta and newstbl then
                 panel:Help("\n\n------ Random Game Session News ------")
                 panel:Help(tostring(rndzeta).." "..rndevent)
@@ -1696,7 +1831,225 @@ zetaplayer_allowphysgun ]]
 
                 panel:Help(tostring(rndzeta).." "..rndevent)
             end
+ ]]
+        
+    end)
 
+    spawnmenu.AddToolMenuOption( 'Zeta Player', 'Zeta Player', 'zeta_debugtools', 'DEBUG TOOLS', "", "", function(panel) 
+        panel:Help('--- DEBUG TOOLS ---')
+
+        panel:CheckBox('Enable Debug','zetaplayer_debug')
+        panel:ControlHelp('Enables Debug text')
+
+        panel:CheckBox('Enable Developer','developer')
+        panel:ControlHelp("Enables Source's Developer mode.\n\nUsed to see Debug Overlays from the Zetas")
+
+        panel:CheckBox('Enable Rapid State Change Warnings','zetaplayer_debug_warnrapidstatechange')
+        panel:ControlHelp('If zetas that rapidly change states should have a warning. Rapid state changes from a single zeta should be disregarded if the amount is below 4.\n\nReport constant rapid state changes with debug info of the zeta using the Debug Tool')
+
+        panel:CheckBox('Display Initialize Time','zetaplayer_debug_displayspawntime')
+        panel:ControlHelp('Displays the amount of time it took for a zeta to start their AI')
+        
+
+        panel:CheckBox('Display Pathfinding Paths','zetaplayer_debug_displaypathfindingpaths')
+        panel:ControlHelp('If Pathfinding paths Zetas use for navigating should be drawn')
+        
+    end)
+
+    spawnmenu.AddToolMenuOption( 'Zeta Player', 'Zeta Player', 'zeta_gensets', 'General Zeta Settings', "", "", function(panel) 
+
+        panel:Help("---- Spawner Settings ----\n")
+
+            panel:CheckBox('Spawners Save Identity','zetaplayer_zetaspawnersaveidentity')
+            panel:ControlHelp("If Zeta Spawners should save their Zeta's identity. Turning this off will have random Zetas spawn again")
+
+            panel:CheckBox( "Respawn at Player Spawns", "zetaplayer_zetaspawnerspawnatplayerspawns" )
+            panel:ControlHelp("If Spawners should respawn their Zetas at player spawn points. (info_player_starts)")
+
+            panel:NumSlider('Spawner Spawn Time','zetaplayer_zetaspawnerrespawntime',0,120,2)
+            panel:ControlHelp("The time Respawning Zetas should respawn after death")
+
+            
+
+        panel:Help("---- ---------- ----\n")
+
+        panel:NumSlider("Spawning Health", "zetaplayer_zetahealth", 1, 10000, 0)
+        panel:ControlHelp("The amount of health Zetas should spawn with")
+
+        panel:NumSlider("Spawning Armor", "zetaplayer_zetaarmor", 0, 10000, 0)
+        panel:ControlHelp("The amount of armor Zetas should spawn with")
+
+        panel:CheckBox('Draw Flashlights','zetaplayer_drawflashlight')
+        panel:ControlHelp('If Zeta Flashlights should draw')
+
+        panel:CheckBox('Use Custom Profile Pictures','zetaplayer_usecustomavatars')
+        panel:ControlHelp("If Zetas are able to use images from custom_avatars as their profile pictures")
+
+        panel:CheckBox('No Repeating Profile Pictures','zetaplayer_norepeatingpfps')
+        panel:ControlHelp("If Profile Pictures should not be re-used | Community Contribute")
+
+        panel:CheckBox('Show Profile Pictures in Tab Menu','zetaplayer_showprofilepicturesintab')
+        panel:ControlHelp("If the Tab display should show Zeta Profile Pictures")
+
+        panel:CheckBox('Show Profile Pictures in display info','zetaplayer_showpfpoverhealth')
+        panel:ControlHelp("If Zetas should show their profile picture when you hover over them")
+
+        panel:CheckBox('Call OnNPCKilled Hook on death','zetaplayer_callonnpckilledhook')
+        panel:ControlHelp("If killed Zetas should call the OnNPCKilled hook. This is used to work with custom killfeeds and other addons. However, Zeta names will not show up properly with this")
+
+        panel:CheckBox('Drop Weapon','zetaplayer_dropweapons')
+        panel:ControlHelp("If Zetas should drop their weapon. Note, the dropped weapon is a prop_physics")
+
+        panel:CheckBox('Enable Drowning','zetaplayer_enabledrowning')
+        panel:ControlHelp("If Zetas should drown in water")
+
+        panel:NumSlider('Water Air Time', 'zetaplayer_waterairtime', 1, 60, 0)
+        panel:ControlHelp("The amount of time zeta can swim in water before starting to drown")
+
+        panel:CheckBox('Enable Fall Damage','zetaplayer_allowfalldamage')
+        panel:ControlHelp('If Zeta should take fall damage')
+        
+        panel:CheckBox('Enable Realistic Fall Damage','zetaplayer_allowrealisticfalldamge')
+        panel:ControlHelp('If Zetas should take realistic fall damage. Note, Fall damage must be on for this to apply')
+
+        panel:CheckBox('Trigger Combine Mines','zetaplayer_triggermines')
+        panel:ControlHelp("Makes Zetas trigger nearby Combine Mines to explode | Community Contribute")
+
+        panel:NumSlider('Mine Hop Time','zetaplayer_triggermines_hoptime',0,5,2)
+        panel:ControlHelp("Time required for the mine to jump at its target after being triggered")
+
+
+        panel:CheckBox('Use Profile System','zetaplayer_useprofilesystem')
+        panel:ControlHelp("If a Zeta should use their profile from profiles.json if they have one")
+
+        panel:CheckBox('Profiles only','zetaplayer_profilesystemonly')
+        panel:ControlHelp("If the Zetas should only spawn using the profiles if possible")
+
+        panel:NumSlider( "Profile Use Chance", "zetaplayer_profileusechance", 0, 100, 0)
+        panel:ControlHelp("The chance a Zeta will spawn using a profile. Use this if you want profile zetas to show up more without Profiles Only option")
+
+
+
+        panel:CheckBox('Allow Media Request','zetaplayer_allowrequestmedia')
+        panel:ControlHelp("If Zetas are allowed to request videos on a Media Player")
+     
+        panel:CheckBox('Allow Kill Binds', 'zetaplayer_allowkillbind')
+        panel:ControlHelp("If Zetas are allowed to use their kill binds to kill themselves")
+
+        panel:CheckBox('Casual Looking', 'zetaplayer_casuallooking')
+        panel:ControlHelp("If Zetas should look around more like a player. Example being a Zeta facing somewhere or at something while moving.")
+    
+
+
+        
+
+
+        panel:CheckBox("Allow Panic On Fire", 'zetaplayer_paniconfire')
+        panel:ControlHelp("If Zetas are on fire, they will panic")
+
+            panel:CheckBox('Allow Disconnecting','zetaplayer_allowdisconnecting')
+            panel:ControlHelp('If Zetas are able to disconnect from your game')
+
+            panel:NumSlider("Max Disconnect Time","zetaplayer_maxdisconnecttime",0,3600,0)
+            panel:ControlHelp('The max of random time in seconds it will take before a Zeta decides to disconnect.\n\n600 is 10 minutes\n1800 is 30 minutes\n3600 is 1 hour')
+            
+            panel:CheckBox('Enable Name Display','zetaplayer_displayzetanames')
+            panel:ControlHelp('If Zetas should display their name when you look at them')
+            
+            panel:CheckBox('Display Armor','zetaplayer_displayarmor')
+            panel:ControlHelp("If Zetas should display their armor when you hover over them")
+            
+            panel:CheckBox('Player Color Based Display Color','zetaplayer_playercolordisplaycolor')
+            panel:ControlHelp("If display name colors should be based on the Zeta's Playermodel Color")
+            
+            panel:CheckBox('Rainbow Name Display','zetaplayer_displaynamerainbow')
+            panel:ControlHelp("If the Zeta's name should change color linearly")
+            
+            panel:Help('You can change the color of their name display below')
+            local colorpanel = vgui.Create('DColorMixer')
+            panel:AddItem(colorpanel)
+            colorpanel:SetParent(panel)
+            colorpanel:SetConVarR('zetaplayer_displaynameRed')
+            colorpanel:SetConVarG('zetaplayer_displaynameGreen')
+            colorpanel:SetConVarB('zetaplayer_displaynameBlue')
+        
+    end)
+
+    spawnmenu.AddToolMenuOption( 'Zeta Player', 'Zeta Player', 'zeta_util', 'Utilities', "", "", function(panel) 
+
+        panel:CheckBox('Disable Thinking','zetaplayer_disabled')
+        panel:ControlHelp('Disable Zeta from thinking')
+
+        panel:CheckBox('Enable Console Logging','zetaplayer_consolelog')
+        panel:ControlHelp('If Zeta Events should be logged in console. Mimics the logging you see when real players spawn things or dies')
+
+        panel:CheckBox('Show Logging on Screen','zetaplayer_showzetalogonscreen')
+        panel:ControlHelp('If Zeta Events should show up on screen. Console Logging must be on for this to function!')
+
+        panel:CheckBox('Enable Corpse Cleanup','zetaplayer_cleanupcorpse')
+        panel:CheckBox('Enable Corpse Cleanup Effect','zetaplayer_cleanupcorpseeffect')
+        panel:NumSlider( 'Clean Up Time', 'zetaplayer_cleanupcorpsetime', 1, 190,0 )
+        panel:ControlHelp('Enable the Corpse cleanup. Clean Up effect is the effect when a corpse is about to be removed this is purely optional. Clean Up time is the time before a corpse gets cleaned')
+
+        panel:CheckBox('Explosive Corpse Cleanup','zetaplayer_explosivecorpsecleanup')
+        panel:ControlHelp('If Corpses should blow up when they are cleaned')
+
+        panel:CheckBox('Kill on Touch Nodraw or Sky','zetaplayer_killontouchnodraworsky')
+        panel:ControlHelp("If Zetas should die when they are touching a nodraw surface or sky surface")
+
+        panel:CheckBox("Disable Player Collisions", 'zetaplayer_noplycollisions')
+        panel:ControlHelp("If Zetas are allowed to pass through Players.")  
+
+        panel:Help("-- SERVER CACHE --")
+
+        panel:Help("What is the SERVER CACHE?\n\nThe Server cache is a cache of data the Zetas use and create when they spawn. The purpose of the SERVER Cache is to prevent Zetas from creating the data over and over when they spawn. In theory, this is supposed to help with performance as all the Zetas would only use the SERVER CACHE if the option is enabled\n\nHowever, you must update the cache after you add new things to the listed data below.")
+
+
+        panel:CheckBox("Use Server Cache Data", "zetaplayer_useservercacheddata")
+        panel:ControlHelp('If Zetas should use the following data from the Server:\nNames\nProps\nEntities\nNPCs\nText Data\nMedia Data\nMaterials\nProfile Pictures\nPlayermodels with or without Playermodel Blocking')
+
+        panel:Button("Update SERVER Cache","zetaplayer_updateservercache")
+        panel:ControlHelp('Update the Cache to add any new additions')
+
+        panel:Help("-- -- -- -- --")
+
+        panel:Button('Auto Tweak Navigation Mesh','zetaplayer_autotweaknavmesh',LocalPlayer())
+        panel:ControlHelp("This will edit the entire nav mesh to remove useless 2 way connections that confuse the Zetas sometimes. Save the nav mesh after using this.")
+        panel:Button('Save Navigation Mesh','zetaplayer_savenavmesh',LocalPlayer())
+    end)
+
+
+    spawnmenu.AddToolMenuOption( 'Zeta Player', 'Zeta Player', 'zeta_movement', 'Movement Options', "", "", function(panel) 
+
+        panel:NumSlider( 'Wander Distance', 'zetaplayer_wanderdistance', 500, 15000,0 )
+        panel:ControlHelp("The Distance that Zetas are allowed to wander within\n\nWarning! Setting this too high may crash your game if your pc isn't strong enough! Value of 1500 or lower is recommended. If you are crashing, try lowering the value")
+
+        panel:CheckBox('Allow Noclip', 'zetaplayer_allownoclip')
+        panel:ControlHelp("If Zetas are allowed to no clip")
+
+        panel:NumSlider("Walk Speed","zetaplayer_walkspeed",100,1500,0)
+        panel:ControlHelp('Walk movement speed Zetas should walk at')
+
+        panel:NumSlider("Run Speed","zetaplayer_runspeed",100,1500,0)
+        panel:ControlHelp('Run movement speed Zetas should walk at')
+
+        panel:CheckBox('Ignore Small Nav Areas','zetaplayer_ignoresmallnavareas')
+        panel:ControlHelp("Zetas will not favor going to smaller nav areas when this is enabled. Turn this on if you don't want Zetas constantly staying near a certain spot")
+
+        panel:CheckBox('Dynamic Pathfinding','zetaplayer_usedynamicpathfinding')
+        panel:ControlHelp("READ THIS BEFORE ENABLING!\n\nDynamic Pathfinding will cost more on performance due to the traces it conducts in order to figure out paths! This is is best used with low Zeta counts such as 4!\n\nIf Zetas should try to dynamically pathfind around objects and find alternate routes if blocked.\nThis system is not perfect and is as good as it will get!")
+
+        panel:CheckBox('Clear Path','zetaplayer_clearpath')
+        panel:ControlHelp("If Zetas with lethal weapons should attack a breakable object that blocks their way. Zetas with toolguns can use the remover tool to also remove a object in their way")
+
+        panel:CheckBox('Disable Unstuck','zetaplayer_disableunstuck')
+        panel:ControlHelp("If Zetas should not try to get themselves unstuck. Normally you shouldn't touch this")
+
+        panel:CheckBox('Disable Jumping','zetaplayer_disablejumping')
+        panel:ControlHelp("If Zetas shouldn't jump over objects")
+
+        panel:CheckBox('Allow DSteps Support', 'zetaplayer_allowdstepssupport')
+        panel:ControlHelp("If Zetas should use DSteps' footstep sounds if its installed")     
         
     end)
 
@@ -1715,7 +2068,7 @@ zetaplayer_allowphysgun ]]
         panel:ControlHelp("If Admins using commands should show up in chat")
 
         panel:CheckBox("Allow Noclip","zetaplayer_allowadminnoclip")
-        panel:ControlHelp("If Admins are allowed to noclip even if the option is disabled in Others")
+        panel:ControlHelp("If Admins are allowed to noclip even if the option is disabled in Movement Options")
 
         
 
@@ -1801,6 +2154,10 @@ zetaplayer_allowphysgun ]]
 
             panel:Button('Make all nearby Zetas attack you','zetaplayer_force_targetplayer',LocalPlayer())
             panel:ControlHelp('All Zetas will attack you.')
+
+            panel:Button('Make all nearby Zetas attack other Zetas','zetaplayer_force_targetzeta',LocalPlayer())
+            panel:ControlHelp('All Zetas will attack other zetas.')
+
 
             panel:Help('---------------------------------------------------------------')
             panel:ControlHelp('Miscellaneous Force Options')

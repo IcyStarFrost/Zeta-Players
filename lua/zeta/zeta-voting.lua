@@ -4,6 +4,7 @@ if ( CLIENT ) then return end
 
 _ZetaCurrentVote = "NIL"
 _ZetaCurrentVotedOptions = {}
+local zetavote_quickindex = {}
 
 local color_glacier = Color(130, 164, 192)
 local color_green = Color(0, 255, 0)
@@ -42,7 +43,21 @@ function ZetaPlayer_CompileVoteOptions(ply,text)
     return title, options
 end
 
+function ZetaPlayer_Translateindex(int) -- Should support normal strings by returning it
+    local translatedvalue = int
+    local convertedval = tonumber(int)
+
+
+    -- Adding a compare between the quick indexes and the value seemed to fix the issue with number options erroring
+    if isnumber(convertedval) and convertedval <= #zetavote_quickindex then 
+        translatedvalue = zetavote_quickindex[convertedval]
+    end
+    return translatedvalue
+end
+
 function ZetaPlayer_DispatchVote(ply,option)
+    option = ZetaPlayer_Translateindex(option)
+
     if _ZetaCurrentVote == "NIL" then
         if ply:IsPlayer() then ply:PrintMessage(HUD_PRINTTALK, "There is no active vote at the moment") end 
         return
@@ -99,6 +114,7 @@ function ZetaPlayer_CreateVote(ply,title,options)
     end
 
     table.Empty(_ZetaCurrentVotedOptions)
+    table.Empty(zetavote_quickindex)
     _ZetaCurrentVote = title
     hook.Run("OnZetaVoteDispatched",ply,title,options)
 
@@ -119,6 +135,7 @@ function ZetaPlayer_CreateVote(ply,title,options)
         net.Start("zeta_sendcoloredtext", true)
             net.WriteString(util.TableToJSON({color_glacier, "[Option"..i.."] ", color_green, options[i]}))
         net.Broadcast()
+        zetavote_quickindex[i] = options[i]
     end
 
     timer.Simple(10, function()

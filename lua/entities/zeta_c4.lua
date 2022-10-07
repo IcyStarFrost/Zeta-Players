@@ -37,7 +37,7 @@ function ENT:Think()
     if CLIENT then return end
     if self.Armed then return end
 
-    if self.currentcur <= 0 then
+    if self.currentcur and self.currentcur <= 0 then
         self.Armed = true
         self:EmitSound("zetaplayer/weapon/c4/nvg_on.wav",110)
 

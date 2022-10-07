@@ -11,18 +11,48 @@ end
 local IsValid = IsValid
 
 
-function ENT:OnTraceAttack( info, dir, trace )
-    local attacker = info:GetAttacker()
+local oldisvalid = IsValid
 
-    if !GetConVar("zetaplayer_enablefriendlyfire"):GetBool() and self:IsInTeam(attacker) then
-        info:SetDamage(0)
+local function IsValid( ent )
+    if oldisvalid( ent ) and ent.IsZetaPlayer then
+        
+        return !ent.IsDead 
+    else
+        return oldisvalid( ent )
     end
 end
 
 function ENT:OnKilled(dmginfo)
     if self.IsDead then return end
-    self.IsDead = true
+
+    local zetastats = file.Read("zetaplayerdata/zetastats.json")
+
+    if zetastats then
+        zetastats = util.JSONToTable(zetastats)
+
+        if zetastats then
+
+            zetastats["kills"] = zetastats["kills"] and zetastats["kills"]+1 or 1
+
+            zetastats["mostdeaths"] = zetastats["mostdeaths"] or {}
+
+            local skillissuezetas = zetastats["mostdeaths"]
+
+            skillissuezetas[self.zetaname] = skillissuezetas[self.zetaname] and skillissuezetas[self.zetaname]+1 or 1 
+
+            ZetaFileWrite("zetaplayerdata/zetastats.json",util.TableToJSON(zetastats,true))
+        else 
+            ZetaFileWrite("zetaplayerdata/zetastats.json","[]")
+        end
+    end
+    
+    
     if ( SERVER ) then
+
+
+        if IsValid( self.Spawner ) then
+            self.Spawner.Friends = self.Friends
+        end
 
         if IsValid(self.Vehicle) then
             self.Vehicle:SetSaveValue("m_hNPCDriver", NULL)
@@ -53,7 +83,6 @@ function ENT:OnKilled(dmginfo)
             net.Broadcast() 
         end
 
-        
         self.Killed = true
 
         if IsValid(dmginfo:GetAttacker()) and dmginfo:GetAttacker():IsPlayer() then
@@ -72,7 +101,7 @@ function ENT:OnKilled(dmginfo)
         local weapon
 
 
-        if GetConVar("zetaplayer_dropweapons"):GetInt() == 1 and !self.WeaponDataTable[self.Weapon].hidewep and !self.WeaponDataTable[self.Weapon].noweapondrop then
+        if GetConVar("zetaplayer_dropweapons"):GetInt() == 1 and !_ZetaWeaponDataTable[self.Weapon].hidewep and !_ZetaWeaponDataTable[self.Weapon].noweapondrop then
             weapon = ents.Create("prop_physics")
             if IsValid(weapon) then
                 weapon:SetModel(self.WeaponENT:GetModel())
@@ -81,6 +110,7 @@ function ENT:OnKilled(dmginfo)
                 weapon.IsZetaProp = true
                 weapon:SetAngles(self.WeaponENT:GetAngles())
                 weapon:Spawn()
+                weapon:SetCollisionGroup(COLLISION_GROUP_DEBRIS)
                 if self.Weapon == "PHYSGUN" then
                     for k, v in ipairs(weapon:GetMaterials()) do
                         if string.EndsWith(v, 'w_physics_sheet') then
@@ -109,8 +139,8 @@ function ENT:OnKilled(dmginfo)
             ragdoll:Dissolve()
         else
         
-        if isfunction(self.WeaponDataTable[self.Weapon].dropCallback) then
-            self.WeaponDataTable[self.Weapon].dropCallback(self, self.WeaponENT, weapon)
+        if isfunction(_ZetaWeaponDataTable[self.Weapon].dropCallback) then
+            _ZetaWeaponDataTable[self.Weapon].dropCallback(self, self.WeaponENT, weapon)
         end
 
         if GetConVar('zetaplayer_cleanupcorpse'):GetInt() == 1 then
@@ -139,7 +169,15 @@ function ENT:OnKilled(dmginfo)
         net.Broadcast()
     end
     
+    timer.Simple( 0.1, function()
+        
+        if oldisvalid( self ) then
+            self:Remove()
+        end
 
+    end )
+
+    self.IsDead = true
 
 end
 
@@ -149,13 +187,6 @@ function ENT:OnInjured(dmginfo)
     local postHP = (self:Health() - dmginfo:GetDamage())
     if postHP <= 0 then return end
 
-    -- Play a random pain sound if it isn't on a cool down. I could maybe use Curtime for the cooldown but this shouldn't hurt. I think?
-    -- UPD: Pain sounds now use zeta's voice pitch
-    if GetConVar('zetaplayer_allowpainvoice'):GetBool() and !timer.Exists('hurtcooldown'..self:EntIndex()) then 
-        local rndSnd = 'vo/npc/male01/pain0'..math.random(9)..'.wav'
-        self:EmitSound(rndSnd, 70, self.VoicePitch, GetConVar('zetaplayer_voicevolume'):GetFloat(), CHAN_AUTO, 0, self.VoiceDSP)
-        timer.Create('hurtcooldown'..self:EntIndex(), SoundDuration(rndSnd) * (100 / self.VoicePitch), 1, function() end)
-    end
 
     if self.IsDriving then return end
     if IsValid(dmginfo:GetInflictor()) and dmginfo:GetInflictor():GetClass() == 'prop_physics' then return end
@@ -167,6 +198,10 @@ function ENT:OnInjured(dmginfo)
         if math.random(10) == 1 then
             self:RemoveFriend(attacker)
         else
+            return
+        end
+
+        if GetConVar("zetaplayer_nohurtfriends"):GetBool() then
             return
         end
     end
@@ -270,14 +305,32 @@ function ENT:OnLandOnGround()
 end
 
 function ENT:OnRemove()
-
+    
     if SERVER then
+        --PrintMessage(HUD_PRINTTALK, "Removed")
+        _ZETACOUNT = _ZETACOUNT - 1
+
+        
+
+--[[         if timer.Exists( "zetaremovespeakinglimit" .. self:EntIndex() ) then
+            _ZETASPEAKINGLIMIT = _ZETASPEAKINGLIMIT - 1
+        end ]]
+
         local friends = self:GetFriends()
         for _,v in pairs(friends) do
             if istable(v.Friends) then
                 v.Friends[self:GetCreationID()] = nil
             end
         end
+
+        if GetConVar("zetaplayer_removepropsondeath"):GetBool() then
+            for k,ent in ipairs(self.SpawnedENTS) do
+                if IsValid(ent) then
+                    ent:Remove()
+                end
+            end
+        end
+
     end
 
     if SERVER and !self.Killed then
@@ -299,11 +352,14 @@ function ENT:OnRemove()
             if GetConVar('zetaplayer_allowdeathvoice'):GetBool() then
                 local sndLvl = self:GetCurrentVoiceSNDLEVEL()
                 local sndName = 'vo/k_lab/kl_ahhhh.wav'
-                if GetConVar('zetaplayer_usealternatedeathsounds'):GetBool() then
+                if self.DEATHVOICEPACKEXISTS then
+                    sndName = "zetaplayer/custom_vo/"..self.VoicePack.."/".."death/death"..math.random(self.DeathSoundCount)..".wav"
+                elseif GetConVar('zetaplayer_usealternatedeathsounds'):GetBool() then
                     local rnd = math.random(79 + self.DeathSoundCount)
-                    sndName = 'zetaplayer/vo/death/atlternatedeath'..rnd..'.wav' 
-                    if rnd > 79 or self.UseCustomDeath or self.Permafriend and GetConVar("zetaplayer_friendcustomdeathlinesonly"):GetBool() or GetConVar("zetaplayer_customdeathlinesonly"):GetBool() then
-                        sndName = "zetaplayer/custom_vo/death/death"..(rnd-79)..".wav"
+                    if self.UseCustomDeath or rnd > 79 or GetConVar("zetaplayer_customdeathlinesonly"):GetBool() then
+                        sndName = "zetaplayer/custom_vo/death/death"..math.random(self.DeathSoundCount)..".wav"
+                    else
+                        sndName = 'zetaplayer/vo/death/atlternatedeath'..rnd..'.wav'
                     end
                 end
 
@@ -318,11 +374,13 @@ function ENT:OnRemove()
                 net.Broadcast()
 
                 if GetConVar("zetaplayer_allowvoicepopup"):GetInt() == 1 then
+                    local popupColor = ((self.TeamColor and GetConVar("zetaplayer_voicepopup_useteamcolor"):GetBool()) and self.TeamColor or Color(0, 255, 0))
                     net.Start("zeta_voicepopup",true)
                         net.WriteString(self.zetaname)
                         net.WriteString(self.ProfilePicture)
                         net.WriteFloat(sndDur)
-                        net.WriteInt(sndID, 32)
+                        net.WriteInt(sndID, 32) -- sndID for 'ENT:OnRemove()'
+                        net.WriteColor(popupColor)
                     net.Broadcast()
                 end
 
@@ -353,13 +411,13 @@ function ENT:OnRemove()
                     attacker = "#"..executer:GetClass(),
                     attackerteam = -1,
                     inflictor = " ",
-                    victim = self.zetaname..(self.zetaTeam and " {"..self.zetaTeam.."}" or ""),
-                    victimteam = 0
+                    victim = self.zetaname,
+                    victimteam = self:GetRealTeamIndex()
                 }
-        
+            
                 net.Start('zeta_addkillfeed', true)
                     net.WriteString(util.TableToJSON(data))
-                    net.WriteBool(killIcon != nil)
+                    net.WriteBool(false)
                 net.Broadcast()  
         
                 if GetConVar('zetaplayer_consolelog'):GetBool() then
@@ -411,8 +469,11 @@ end
 
 function ENT:OnOtherKilled(victim,dmginfo)
 
-    if dmginfo:GetAttacker() == self then
-        local wepData = self.WeaponDataTable[self.Weapon]
+    local attacker = dmginfo:GetAttacker()
+
+
+    if attacker == self then
+        local wepData = _ZetaWeaponDataTable[self.Weapon]
         if wepData and wepData.onKillCallback then
             wepData:onKillCallback(self, self.WeaponENT, victim, dmginfo)
         end
@@ -424,7 +485,26 @@ function ENT:OnOtherKilled(victim,dmginfo)
     if !self:IsValid() then return end
     if self:GetState() == 'chasemelee' or self:GetState() == 'chaseranged' then
 
+        
+        if IsValid(attacker) and (victim:IsPlayer() or victim.IsZetaPlayer) and attacker == self then
+            local zetastats = file.Read("zetaplayerdata/zetastats.json")
 
+            if zetastats then
+                zetastats = util.JSONToTable(zetastats)
+
+                if zetastats then
+                    zetastats["topzetas"] = zetastats["topzetas"] or {}
+
+                    local topzetas = zetastats["topzetas"]
+
+                    topzetas[self.zetaname] = topzetas[self.zetaname] and topzetas[self.zetaname]+1 or 1 
+
+                    ZetaFileWrite("zetaplayerdata/zetastats.json",util.TableToJSON(zetastats,true))
+                else 
+                    ZetaFileWrite("zetaplayerdata/zetastats.json","[]")
+                end
+            end
+        end
 
 
         if victim == self:GetEnemy() then
@@ -432,7 +512,7 @@ function ENT:OnOtherKilled(victim,dmginfo)
             timer.Remove("zetastrafe"..self:EntIndex())
             self:CancelMove()
             self:SetState('idle')
-            if dmginfo:GetAttacker() == self then
+            if attacker == self then
                 if 100 * math.random() < self.VoiceChance then
                     self:PlayKillSound()
                 end
@@ -458,7 +538,7 @@ function ENT:OnOtherKilled(victim,dmginfo)
                 
             end
 
-            if IsValid(dmginfo:GetAttacker()) and dmginfo:GetAttacker() != self then
+            if IsValid(attacker) and attacker != self then
                 if 100 * math.random() < self.VoiceChance then
                     timer.Simple(math.random(0.0,1.0),function()
                         if !IsValid(self) then return end
@@ -481,19 +561,20 @@ function ENT:OnOtherKilled(victim,dmginfo)
                 self:SetNW2Bool( 'zeta_aggressor', false )
             end)
 
-            if IsValid(dmginfo:GetAttacker()) and dmginfo:GetAttacker():IsPlayer() and self:GetEnemy() != dmginfo:GetAttacker() and math.random(1,15) == 1 then
-                if GetConVar("zetaplayer_enablefriend"):GetInt() == 1 and !dmginfo:GetAttacker():GetNW2Entity('zeta_friend',NULL):IsValid() then
-                    self:AddFriend(dmginfo:GetAttacker())
+            if IsValid(attacker) and (attacker:IsPlayer() or attacker.IsZetaPlayer) and self:GetEnemy() != attacker and math.random(1,15) == 1 then
+                if GetConVar("zetaplayer_enablefriend"):GetInt() == 1 then
+                    self:AddFriend(attacker)
                 end
             end
 
-            if IsValid(dmginfo:GetAttacker()) and victim:IsPlayer() and dmginfo:GetAttacker() == self then
+
+            if IsValid(attacker) and victim:IsPlayer() and attacker == self then
                 self.achievement_PlayerKiller = self.achievement_PlayerKiller + 1
 
                 if self.achievement_PlayerKiller == self.achievement_PlayerKillerMax then
                     self:AwardAchievement("Real Player Nemesis")
                 end
-            elseif IsValid(dmginfo:GetAttacker()) and dmginfo:GetAttacker() == self and victim.IsZetaPlayer then
+            elseif IsValid(attacker) and attacker == self and victim.IsZetaPlayer then
                 self.achievement_Berserker = self.achievement_Berserker + 1
 
                 if self.achievement_Berserker == self.achievement_BerserkerMax then
@@ -511,31 +592,31 @@ function ENT:OnOtherKilled(victim,dmginfo)
 
     end
 
-    if IsValid(dmginfo:GetAttacker()) and dmginfo:GetAttacker():IsNPC() and dmginfo:GetAttacker():Health() >= 250 and math.random(1,3) == 1 then
-        if self:CanSee(dmginfo:GetAttacker()) == false then return end
-        if self.HasLethalWeapon == false then
+    if IsValid(attacker) and attacker:IsNPC() and attacker:Health() >= 250 and math.random(1,3) == 1 then
+        if !self:CanSee(attacker) then return end
+        if !self.HasLethalWeapon then
             self:ChooseLethalWeapon()
         end
 
-        if self.HasMelee and self:GetState() != 'panic' and dmginfo:GetAttacker() != self then
+        if self.HasMelee and self:GetState() != 'panic' and attacker != self then
             if GetConVar('zetaplayer_allowdefendothers'):GetInt() == 0 then return end
             if self.Weapon == 'NONE' then return end
-            if dmginfo:GetAttacker():IsPlayer() and GetConVar('ai_ignoreplayers'):GetInt() == 1 then return end
+            if attacker:IsPlayer() and GetConVar('ai_ignoreplayers'):GetInt() == 1 then return end
             self.Delayattack = false
             self:CancelMove()
-            self:SetEnemy(dmginfo:GetAttacker())
+            self:SetEnemy(attacker)
             self:SetState('chasemelee')
             return
         end
 
-        if !self.HasMelee and self:GetState() != 'panic' and dmginfo:GetAttacker() != self then
+        if !self.HasMelee and self:GetState() != 'panic' and attacker != self then
             if GetConVar('zetaplayer_allowdefendothers'):GetInt() == 0 then return end
-            if dmginfo:GetAttacker():IsPlayer() and GetConVar('ai_ignoreplayers'):GetInt() == 1 then return end
+            if attacker:IsPlayer() and GetConVar('ai_ignoreplayers'):GetInt() == 1 then return end
             if self.Weapon == 'NONE' then return end
-            if self.Weapon == 'PHYSGUN' and self.Grabbing == false then return end
+            if self.Weapon == 'PHYSGUN' and !self.Grabbing then return end
             self.Delayattack = false
             self:CancelMove()
-            self:SetEnemy(dmginfo:GetAttacker())
+            self:SetEnemy(attacker)
             self:SetState('chaseranged')
             
             return
@@ -544,7 +625,7 @@ function ENT:OnOtherKilled(victim,dmginfo)
     if victim:GetPos():Distance(self:GetPos()) <= self.SightDistance then
         local pos = victim:GetPos()
     local witnesstest = util.TraceLine({start = self:GetPos()+Vector(0,0,60),endpos = victim:GetPos()+Vector(0,0,60),filter = self})
-    if witnesstest.Hit == false then
+    if !witnesstest.Hit then
         if self.Debug == true then
             DebugText('DeathWitness: Witnessed a death and reacting')
         end
@@ -555,7 +636,7 @@ function ENT:OnOtherKilled(victim,dmginfo)
             if self.IsMoving == true then
                 self:CancelMove()
             end
-            self:Panic(dmginfo:GetAttacker())
+            self:Panic(attacker)
         else
             local rnd = math.random(1,10)
         if rnd == 1 then

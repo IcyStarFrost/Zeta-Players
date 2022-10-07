@@ -102,20 +102,23 @@ function _ZetaUpdateServerCache(caller)
 
     _SERVERPLAYERMODELS = table.ClearKeys( _SERVERPLAYERMODELS )
 
-
     local json = file.Read("zetaplayerdata/blockedplayermodels.json","DATA")
     local blockedmdls = util.JSONToTable(json)
     local add = ""
+
     if GetConVar("zetaplayer_enableblockmodels"):GetBool() then
+
         add = " with Playermodel Blocking modifications"
+
         if #blockedmdls > 0 then
             for k,v in ipairs(blockedmdls) do
                 if !util.IsValidModel(v) then continue end
                 local key = table.KeyFromValue( _SERVERPLAYERMODELS, v )
-                
+                print("Removed ",v)
                 table.remove(_SERVERPLAYERMODELS,key)
             end
         end
+
     end
 
     print("SERVER Playermodels Updated"..add)
@@ -466,14 +469,19 @@ function ZetasDiesAroundPlayer(caller)
 end
 
 
+
 function _ZetaTweakNavmesh()
     local areas = navmesh.GetAllNavAreas()
     for k,v in ipairs(areas) do
         local adjareas = v:GetAdjacentAreas()
         for i,l in ipairs(adjareas) do
-            if v:ComputeAdjacentConnectionHeightChange(l) > 30 then 
+            if v:ComputeAdjacentConnectionHeightChange(l) > 20 then 
                 v:Disconnect(l)
             end
+            if v:ComputeAdjacentConnectionHeightChange(l) < -150 then 
+                v:Disconnect(l)
+            end
+
         end
     end
     PrintMessage(HUD_PRINTTALK,"Nav Mesh has been Edited to suit the Zetas!")
@@ -552,3 +560,15 @@ function ZetasForceFriendToPlayer(caller)
     end
 end
 
+
+
+function ZetasTargetOtherZetas(caller)
+
+    local distance = GetConVar('zetaplayer_forceradius'):GetInt() or 700
+
+    for k,v in ipairs(ents.FindInSphere(caller:GetPos(), distance)) do
+        if v.IsZetaPlayer then
+            v:LookforTarget(hunt)
+        end
+    end
+end

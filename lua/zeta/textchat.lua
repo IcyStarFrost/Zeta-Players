@@ -90,6 +90,53 @@ local restrictRndWords = {
     ["theres"] = true
 }
 
+
+local function CombineStringTable( tbl )
+    local strin = ""
+ 
+     for k, v in ipairs( tbl ) do
+         strin = strin .. " " .. v    
+     end 
+     
+     return strin
+ end
+     
+ -- Prototype created in StarFall
+ -- Bootleg markov chain stuff anyways. It's not the real deal but it works very well
+ local function MarkovChain_MixPhrase( text, feed )
+     
+     local mod = ""
+     
+     local feedstring = CombineStringTable( feed )
+     local textsplit = string.Explode( " ", text )
+     local validwords = {}
+     local smallwords = {}
+     
+     for k, word in ipairs( string.Explode( " ", feedstring ) ) do
+         if #word > 3 then validwords[ #validwords + 1 ] = word end
+     end
+     
+     for k, word in ipairs( string.Explode( " ", feedstring ) ) do
+         if #word < 3 then smallwords[ #smallwords + 1 ] = word end
+     end
+     
+     for k, word in ipairs( textsplit ) do
+         local preword = word
+         
+         if #preword > 3 and math.random( 1, 2 ) == 1 then
+             preword = validwords[ math.random( #validwords ) ]
+         elseif #preword < 3 and math.random( 1, 6 ) == 1 then
+             preword = smallwords[ math.random( #smallwords ) ]
+         end    
+         
+         mod = mod .. " " .. preword
+     end
+
+     
+     return mod
+ end
+
+
 local function GetStringRepeatCount(strin,pattern) -- Returns the amount of times the pattern text was found. "test /rndent/ test udshf /rndent/ /rndent/" would return 3 if /rndent/ is the pattern
     local count = 0
     for i in string.gmatch(strin, pattern) do
@@ -191,6 +238,7 @@ end
 function ENT:TypeMessage(msgtype)
     if self.TypingInChat then return 0 end
     if !self.TEXTDATA or !self.TEXTDATA[msgtype] then return 0 end
+    if GetConVar("zetaplayer_textchatslowtime"):GetFloat() != 0 and CurTime() < _ZETATEXTSLOWCUR then self:RemoveGesture(ACT_GMOD_IN_CHAT) self.TypingInChat = false return 0 end
 
     local isDead = (msgtype == "death")
     local textType = msgtype
@@ -200,33 +248,26 @@ function ENT:TypeMessage(msgtype)
         self:AddGesture( ACT_GMOD_IN_CHAT,false )
         self.TypingInChat = true
 
-        if msgtype == "idle" and self.SpecificDay != "None" and math.random(3) == 1 then
+        if msgtype == "idle" and _ZetaSpecificDay != "None" and math.random(3) == 1 then
             self.text_keyent = Entity(1):GetName()
-            textType = self.SpecificDay
+            textType = _ZetaSpecificDay
         end
     end
 
     local rndphrase = self.TEXTDATA[textType][math.random(#self.TEXTDATA[textType])]
+
+    rndphrase = GetConVar( "zetaplayer_textmixing" ):GetBool() and MarkovChain_MixPhrase( rndphrase, self.TEXTDATA[textType] ) or rndphrase
+
     rndphrase = self:CheckForKeyPhrases(rndphrase)
 
+    
 
-    local rank = ""
-    if self:GetNW2Bool("zeta_showfriendstat",false) and GetConVar("zetaplayer_usefriendcolor"):GetBool() then
-        rank = "friend"
-    elseif self.IsAdmin then
-        rank = "admin"
-    elseif self:IsInTeam(Entity(1)) then
-        rank = "team"
-    end
-    local r,g,b
-    if GetConVar("zetaplayer_playercolordisplaycolor"):GetBool() then
-        r,g,b = self:GetColorByRank()
-    else
-        r,g,b = 0,0,0
-    end
+
+    local r,g,b = self:GetColorByRank()
+
 
     local typeTime = string.len(rndphrase)/math.random(5,11)
-    self.TypingChatText = {rndphrase, CurTime(), typeTime, rank} 
+    self.TypingChatText = {rndphrase, CurTime(), typeTime,Color(r,g,b)} 
 
     local selfpos = self:GetPos()
     
@@ -234,8 +275,16 @@ function ENT:TypeMessage(msgtype)
     timer.Create("zetaTypeChatMessage"..self:EntIndex(), typeTime, 1, function()
         if !isDead then 
             if !IsValid(self) or !self.TypingInChat then return end
-            self:SendTextMessage(rndphrase, rank)
+            if GetConVar("zetaplayer_textchatslowtime"):GetFloat() != 0 and CurTime() < _ZETATEXTSLOWCUR then self:RemoveGesture(ACT_GMOD_IN_CHAT) self.TypingInChat = false return 0 end
+
+            _ZETATEXTSLOWCUR = CurTime()+GetConVar("zetaplayer_textchatslowtime"):GetFloat()
+            self:SendTextMessage(rndphrase, Color(r,g,b))
         else
+
+            if GetConVar("zetaplayer_textchatslowtime"):GetFloat() != 0 and CurTime() < _ZETATEXTSLOWCUR then return 0 end
+
+            _ZETATEXTSLOWCUR = CurTime()+GetConVar("zetaplayer_textchatslowtime"):GetFloat()
+
             hook.Run("ZetaPlayerSay", self, rndphrase, name)
 
             
@@ -243,13 +292,13 @@ function ENT:TypeMessage(msgtype)
             net.Start("zeta_chatsend", true)
                 net.WriteString(name)
                 net.WriteString(rndphrase)
-                net.WriteString(rank)
                 net.WriteColor(Color(r,g,b),false)
                 net.WriteBool(isDead)
                 net.WriteVector(selfpos)
             net.Broadcast()
 
-            if GetConVar("zetaplayer_enablemoonbasettssupport"):GetBool() and ConVarExists( "tts_enable" ) then
+            local dist = GetConVar("zetaplayer_textchatreceivedistance"):GetInt()
+            if GetConVar("zetaplayer_enablemoonbasettssupport"):GetBool() and ConVarExists( "tts_enable" ) and (dist != 0 and Entity(1):GetPos():Distance(self:GetPos()) < dist or true ) then
                 local tbl = hook.Run( "preTTS", Entity(1), rndphrase, false )
                 if tbl.tts then
                     net.Start("tts")
@@ -268,20 +317,13 @@ function ENT:TypeMessage(msgtype)
     return typeTime
 end
 
-function ENT:SendTextMessage(msg, rank)
+function ENT:SendTextMessage(msg,color)
     self:RemoveGesture(ACT_GMOD_IN_CHAT)
     self.TypingInChat = false
 
     if msg == "bloxwich" and !self.achievement_earnedbloxwich then
         self.achievement_earnedbloxwich = true
         self:AwardAchievement("Secret Phrase")
-    end
-
-    local r,g,b
-    if GetConVar("zetaplayer_playercolordisplaycolor"):GetBool() then
-        r,g,b = self:GetColorByRank()
-    else
-        r,g,b = 0,0,0
     end
 
     local selfpos = self:GetPos()
@@ -292,13 +334,13 @@ function ENT:SendTextMessage(msg, rank)
     net.Start("zeta_chatsend", true)
         net.WriteString(self.zetaname)
         net.WriteString(msg)
-        net.WriteString(rank)
-        net.WriteColor(Color(r,g,b),false)
+        net.WriteColor(color,false)
         net.WriteBool(false)
         net.WriteVector(selfpos)
     net.Broadcast()
 
-    if GetConVar("zetaplayer_enablemoonbasettssupport"):GetBool() and ConVarExists("tts_enable") then
+    local dist = GetConVar("zetaplayer_textchatreceivedistance"):GetInt()
+    if GetConVar("zetaplayer_enablemoonbasettssupport"):GetBool() and ConVarExists("tts_enable") and (dist != 0 and Entity(1):GetPos():Distance(self:GetPos()) < dist or true ) then
         local tbl = hook.Run( "preTTS", Entity(1), msg, false )
         if tbl.tts then
             net.Start("tts")

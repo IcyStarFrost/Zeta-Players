@@ -9,12 +9,31 @@ local trace = {}
 local zetamath = {}
 
 zetamath.random = math.random
+zetamath.Rand = math.Rand
 zetamath.ApproachAngle = math.ApproachAngle
 zetamath.Approach = math.Approach
 trace.TraceLine = util.TraceLine
 
 local ents = ents
-local IsValid = IsValid
+local util = util
+local math = math
+local table = table
+local ipairs = ipairs
+local pairs = pairs
+local RandomPairs = RandomPairs
+
+
+
+local oldisvalid = IsValid
+
+local function IsValid( ent )
+    if oldisvalid( ent ) and ent.IsZetaPlayer then
+        
+        return !ent.IsDead 
+    else
+        return oldisvalid( ent )
+    end
+end
 
 local level = 75
 local volume = 1
@@ -597,18 +616,37 @@ function ENT:GetLastActivity()
     end
 end
 
+function ENT:SendConsoleLog(text,color)
+  color = color or color_white
+
+  net.Start("zeta_sendonscreenlog")
+    net.WriteString(text)
+    net.WriteColor(color)
+  net.Broadcast()
+end
+
 ENT.LastStateTraces = {}
 
 function ENT:PrintStateDebug()
   PrintTable(self.LastStateTraces)
 end
 
+ENT.LastStateCall = CurTime()
+local color_red = Color(165,18,18)
+
 function ENT:SetState(state)
+  local rapid = CurTime() < self.LastStateCall
+  if GetConVar("zetaplayer_debug_warnrapidstatechange"):GetBool() and rapid then self:SendConsoleLog(self.zetaname.." had a rapid state change! If this happened below 4 times, disregard.",color_red) Entity(1):EmitSound("common/warning.wav") end
+
+  self.LastStateCall = CurTime()+0.5
     hook.Run("ZetaOnStateChanged", self, self:GetState(), state)
 
     local newindex = #self.LastStateTraces+1
     if newindex > 3 then table.remove(self.LastStateTraces,1) end
-    self.LastStateTraces[newindex] = self.zetaname.." Changed their state from "..self:GetState().." to "..state.." Stack Trace is.. \n\n"..debug.traceback().."\n\n"
+
+    local add = rapid and "This change is deemed to have been rapid. CurTime() being,  "..tostring(CurTime()).."\n" or ""
+
+    self.LastStateTraces[newindex] = add..self.zetaname.." Changed their state from "..self:GetState().." to "..state.." Stack Trace is.. \n\n"..debug.traceback().."\n\n"
     if self.stacktrace then
       print(self.zetaname," Changed their state to "..state," Stack Trace is.. ",debug.traceback())
     end
@@ -631,7 +669,7 @@ end
 
 function ENT:GetActivityWeapon(animtype)
   if self.IsMingebag then return 0 end
-	local wepData = self.WeaponDataTable[self.Weapon]
+	local wepData = _ZetaWeaponDataTable[self.Weapon]
 	if wepData != nil then return wepData.anims[animtype] end
 end
 
@@ -675,6 +713,28 @@ local swimAnimTranslations = {  -- In case if I forgot to put more animations, a
   [ACT_HL2MP_RUN_CAMERA]    = ACT_HL2MP_SWIM_CAMERA,
   [ACT_HL2MP_RUN_MAGIC]     = ACT_HL2MP_SWIM_MAGIC,
   [ACT_HL2MP_RUN_ZOMBIE]     = ACT_HL2MP_RUN_ZOMBIE_FAST,
+}
+
+local walkAnimTranslations = {  
+  [ACT_HL2MP_RUN]           = ACT_HL2MP_WALK,
+  [ACT_HL2MP_RUN_PHYSGUN]      = ACT_HL2MP_WALK_PHYSGUN,
+  [ACT_HL2MP_RUN_FIST]      = ACT_HL2MP_WALK_FIST,
+  [ACT_HL2MP_RUN_KNIFE]     = ACT_HL2MP_WALK_KNIFE,
+  [ACT_HL2MP_RUN_MELEE]     = ACT_HL2MP_WALK_MELEE,
+  [ACT_HL2MP_RUN_MELEE2]    = ACT_HL2MP_WALK_MELEE2,
+  [ACT_HL2MP_RUN_PISTOL]    = ACT_HL2MP_WALK_PISTOL,
+  [ACT_HL2MP_RUN_DUEL]    =   ACT_HL2MP_WALK_DUEL,
+  [ACT_HL2MP_RUN_REVOLVER]  = ACT_HL2MP_WALK_REVOLVER,
+  [ACT_HL2MP_RUN_SMG1]      = ACT_HL2MP_WALK_SMG1,
+  [ACT_HL2MP_RUN_AR2]       = ACT_HL2MP_WALK_AR2,
+  [ACT_HL2MP_RUN_SHOTGUN]   = ACT_HL2MP_WALK_SHOTGUN,
+  [ACT_HL2MP_RUN_CROSSBOW]  = ACT_HL2MP_WALK_CROSSBOW,
+  [ACT_HL2MP_RUN_RPG]       = ACT_HL2MP_WALK_RPG,
+  [ACT_HL2MP_RUN_GRENADE]   = ACT_HL2MP_WALK_GRENADE,
+  [ACT_HL2MP_RUN_SLAM]      = ACT_HL2MP_WALK_SLAM,
+  [ACT_HL2MP_RUN_CAMERA]    = ACT_HL2MP_WALK_CAMERA,
+  [ACT_HL2MP_RUN_MAGIC]     = ACT_HL2MP_WALK_MAGIC,
+  [ACT_HL2MP_RUN_ZOMBIE]     = ACT_HL2MP_WALK_ZOMBIE,
 }
 
 function ENT:GetSwimAnimation(anim)
@@ -735,6 +795,10 @@ function ENT:FindInSight(radius,filter)
   end
 
   return picked
+end
+
+function ENT:GetShootPos()
+  return self.WeaponENT and self.WeaponENT:GetPos() or self:WorldSpaceCenter()
 end
 
 function ENT:FindInSphere(radius,filter)
@@ -827,7 +891,7 @@ function ENT:Face2(uniquename,runtimes,pos,rate)
     ent = pos
     isent = true
   end
-
+  self:RemoveThinkFunction(uniquename)
   self:CreateThinkFunction(uniquename, 0, runtimes, function()
     if isent and !IsValid(ent) or isent and !IsValid(pos) then return "failed" end
 
@@ -856,7 +920,7 @@ function ENT:LookAt2(uniquename,runtimes,pos)
     target = pos
     isent = true
   end
-
+  self:RemoveThinkFunction(uniquename)
   self:CreateThinkFunction(uniquename, 0, runtimes, function()
     if isent and !IsValid(target) or isent and !IsValid(pos) then return "failed" end
     timer.Create('zetalooktimeput'..self:EntIndex(),3,1,function()
@@ -1186,14 +1250,23 @@ zetaplayer_allowphysgun ]]
 
 
 
+function ENT:CanUseWeapon(weapon)
+  return self.WeaponConVars and weapon and self.WeaponConVars[weapon][1] and self.WeaponConVars[weapon][1]:GetBool() or false
+end
 
+function ENT:Disposition( ent )
+  return D_NU
+end
+
+function ENT:AddEntityRelationship()
+end
 
 function ENT:GetUseableWeapon()
   local useableWeapons = {'NONE'}
   for k, v in pairs(self.WeaponConVars) do
       if v[1]:GetBool() == true then useableWeapons[#useableWeapons+1] = k end
   end
-  if self.FavouriteWeapon and GetConVar("zetaplayer_allow"..string.lower(self.FavouriteWeapon)):GetBool() then
+  if self.FavouriteWeapon and self:CanUseWeapon(self.FavouriteWeapon) then
       for i = 1, #useableWeapons do useableWeapons[#useableWeapons+1] = self.FavouriteWeapon end
   end
   if self.IsAdmin and GetConVar('zetaplayer_allowphysgun'):GetBool() then
@@ -1207,10 +1280,11 @@ function ENT:GetUseableLethalWeapon()
   for k, v in pairs(self.WeaponConVars) do
       if v[1]:GetBool() == true and (!isbool(v[2]) and v[2]:GetBool() or v[2] == true) then useableWeapons[#useableWeapons+1] = k end
   end
-  if self.FavouriteWeapon and GetConVar("zetaplayer_allow"..string.lower(self.FavouriteWeapon)):GetBool() and self.WeaponDataTable[self.FavouriteWeapon].lethal then
-      for i = 1, #useableWeapons do useableWeapons[#useableWeapons+1] = self.FavouriteWeapon end
+  if self.FavouriteWeapon and self:CanUseWeapon(self.FavouriteWeapon) and self.WeaponConVars[self.FavouriteWeapon][2] then
+    for i = 1, #useableWeapons do useableWeapons[#useableWeapons+1] = self.FavouriteWeapon end
   end
   if !useableWeapons or #useableWeapons <= 0 then useableWeapons = {"NONE"} end
+
   return useableWeapons
 end
 
@@ -1221,38 +1295,74 @@ function ENT:SetModelColor(color)
   net.Broadcast()
 end
 
-local canseetracetbl = {}
+local canSeeTraceTbl = {}
+function ENT:CanSee(ent, startPos, ignoreEnt)
+    if !IsValid(ent) then return end
+    local startPos = startPos or self:GetCenteroid()
+    local entPos = ent:GetCenteroid()
+    if self:GetRangeSquaredTo(entPos) > (64*64) and self:IsLineBlockedBySmoke(self:GetCenteroid(), entPos) then return false end
 
+    local filter = {self}
+    if IsValid(ignoreEnt) then filter[#filter+1] = ignoreEnt end
 
-function ENT:CanSee(ent)
-  if !IsValid(ent) then return end
-  local pos
-  if ent:IsPlayer() then
-    pos = ent:GetPos()+ent:OBBCenter()+Vector(0,0,5)
-  else
-    pos = ent:GetPos()+ent:OBBCenter()
-  end
-  canseetracetbl.start = self:GetPos()+self:OBBCenter()
-  canseetracetbl.endpos = pos
-  canseetracetbl.filter = self
-  local lostest = trace.TraceLine(canseetracetbl)
-  if lostest.Entity == ent then
-    return true
-  elseif isfunction(lostest.Entity.GetDriver) and lostest.Entity:GetDriver() == ent then
-    return true
-  end
+    canSeeTraceTbl.start = startPos
+    canSeeTraceTbl.endpos = entPos
+    canSeeTraceTbl.filter = filter
 
-  return false
+    local lostest = trace.TraceLine(canSeeTraceTbl)
+    return (lostest.Entity == ent)
 end
 
 function ENT:CanSeePosition(pos, startPos, ignoreEnt)
+  local startPos = startPos or self:GetCenteroid()
+  if startPos:DistToSqr(pos) > (64*64) and self:IsLineBlockedBySmoke(startPos, pos) then return false end
+
   local filter = {self}
   if IsValid(ignoreEnt) then filter[#filter+1] = ignoreEnt end
-  canseetracetbl.start = (startPos or self:GetPos() + self:OBBCenter())
-  canseetracetbl.endpos = pos
-  canseetracetbl.filter = filter
-  local lostest = trace.TraceLine(canseetracetbl)
+  
+  canSeeTraceTbl.start = startPos
+  canSeeTraceTbl.endpos = pos
+  canSeeTraceTbl.filter = filter
+      
+  local lostest = trace.TraceLine(canSeeTraceTbl)
   return (lostest.Fraction >= 1.0)
+end
+
+local SmokeGrenadeRadius = 155
+function ENT:IsLineBlockedBySmoke(from, to)
+  local totalSmokedLength = 0.0
+  local smokeRadiusSq = (SmokeGrenadeRadius * SmokeGrenadeRadius)
+
+  for _, v in pairs(_ZETASMOKEGRENADES) do
+      local flLengthAdd = self:CheckTotalSmokedLength(smokeRadiusSq, v, from, to)
+      if flLengthAdd == -1 then return true end
+      totalSmokedLength = totalSmokedLength + flLengthAdd
+  end
+
+  local maxSmokedLength = 0.7 * SmokeGrenadeRadius
+  return (totalSmokedLength > maxSmokedLength)
+end
+
+
+
+function ENT:CheckTotalSmokedLength(smokeRadiusSq, vecGrenadePos, from, to)
+  local sightDir = (to - from)
+  local sightLength = sightDir:Length()
+  sightDir:Normalize()
+
+  local smokeOrigin = vecGrenadePos + Vector(0, 0, 60)
+  if from:DistToSqr(smokeOrigin) < smokeRadiusSq or to:DistToSqr(smokeOrigin) < smokeRadiusSq then return -1 end
+
+  local toGrenade = (smokeOrigin - from)
+  local alongDist = toGrenade:Dot(sightDir)
+
+  local close = (alongDist < 0 and from or (alongDist >= sightLength and to or (from + sightDir * alongDist)))
+  local lengthSq = smokeOrigin:DistToSqr(close)
+  if lengthSq < smokeRadiusSq then
+      local smokedLength = 2.0 * math.sqrt(smokeRadiusSq - lengthSq)
+      return smokedLength
+  end
+  return 0
 end
 
 function ENT:GetBonePosAngs(index)
@@ -1368,150 +1478,83 @@ end
 
 
 
-function ENT:DeathFunction(dmginfo)
-  local attacker = dmginfo:GetAttacker()
-  local inflict = dmginfo:GetInflictor()
-
-  if !self.SilenceDeath then
-    if 100 * zetamath.random() < self.TextChance and GetConVar("zetaplayer_allowtextchat"):GetInt() == 1 and dmginfo:GetAttacker():IsPlayer() or 100 * zetamath.random() < self.TextChance and GetConVar("zetaplayer_allowtextchat"):GetInt() == 1 and dmginfo:GetAttacker().IsZetaPlayer then
-
-      self.text_keyent = dmginfo:GetAttacker():IsPlayer() and dmginfo:GetAttacker():GetName() or dmginfo:GetAttacker().IsZetaPlayer and dmginfo:GetAttacker().zetaname
-      self:TypeMessage("death")
-
-    else
-      self:PlayDeathSound()
-    end
-  end
-
-
-
-  
-
-
-    if SERVER and IsValid(attacker) then
-      local data
-      local teamname = ""
-
-      if self.zetaTeam then
-        teamname = " {"..self.zetaTeam.."}"
-      end
-
-    local killIcon = nil
-    if attacker == self then
-      
-      data = {
-        attacker = self.suicidereason or " ",
-        attackerteam = -1,
-        inflictor = " ",
-        victim = self.zetaname..teamname,
-        victimteam = 0
-      }
-
-    elseif attacker:IsPlayer() then
-      data = {
-        attacker = attacker:Name(),
-        attackerteam = attacker:Team(),
-        inflictor = inflict == attacker and attacker:GetActiveWeapon():GetClass() or IsValid(inflict) and inflict:GetClass(),
-        victim = self.zetaname..teamname,
-        victimteam = 0
-      }
-      
-    elseif attacker.IsZetaC4 or IsValid(inflict) and inflict.IsZetaC4 then
-      local attackteamname = ""
-
-      if IsValid(attacker) and attacker.IsZetaPlayer and attacker.zetaTeam then
-        attackteamname = " {"..attacker.zetaTeam.."}"
-      end
-
-      data = {
-        attacker = attacker.IsZetaPlayer and attacker.zetaname..attackteamname or attacker.IsZetaC4 and "C4",
-        attackerteam = 0,
-        inflictor = ' ',
-        victim = self.zetaname..teamname,
-        victimteam = 0,
-        prettyprint = IsValid(attacker) and attacker.IsZetaPlayer and "C4" or nil 
-      }
-    elseif attacker.IsZetaPlayer then
-
-        local attackteamname = ""
-        killIcon = attacker.WeaponKillIcons[attacker.Weapon]
-
-        if attacker.zetaTeam then
-          attackteamname = " {"..attacker.zetaTeam.."}"
-        end
-        data = {
-          attacker = attacker.zetaname..attackteamname,
-          attackerteam = 0,
-          inflictor = killIcon or " ",
-          victim = self.zetaname..teamname,
-          victimteam = 0,
-          prettyprint = IsValid(inflict) and inflict:GetClass() == "prop_physics" and "Physics Prop" or attacker.PrettyPrintWeapon
-        }
-      else
-        data = {
-          attacker = "#"..attacker:GetClass(),
-          attackerteam = -1,
-          inflictor = IsValid(inflict) and inflict:GetClass() or " ",
-          victim = self.zetaname..teamname,
-          victimteam = 0
-        }
-      end
-      
-
-
-      net.Start('zeta_addkillfeed',true)
-      net.WriteString(util.TableToJSON(data))
-      net.WriteBool(killIcon != nil)
-      net.Broadcast()  
-    end
-
-    if GetConVar('zetaplayer_consolelog'):GetInt() == 1 and IsValid(attacker) then
-        if attacker:GetClass() == 'npc_zetaplayer' then
-
-          if GetConVar("zetaplayer_showzetalogonscreen"):GetInt() == 1 then
-            net.Start("zeta_sendonscreenlog",true)
-            net.WriteString(self.KillReason or self.zetaname..' was killed by ',attacker.zetaname)
-            net.WriteColor(Color(255,38,38),false)
-            net.Broadcast()
-          end
-
-
-          if self.KillReason then
-            MsgAll('ZETA: '..self.KillReason)
-          else
-            MsgAll('ZETA: ',self.zetaname..' was killed by ',attacker:GetNW2String('zeta_name','Zeta Player'))
-          end
-        
-        else
-          if GetConVar("zetaplayer_showzetalogonscreen"):GetInt() == 1 then
-            net.Start("zeta_sendonscreenlog",true)
-            net.WriteString(self.zetaname..' was killed by '..tostring(attacker))
-            net.WriteColor(Color(255,38,38),false)
-            net.Broadcast()
-        end
-          if self.KillReason then
-            MsgAll('ZETA: '..self.KillReason)
-          else
-            MsgAll('ZETA: ',self.zetaname..' was killed by ',attacker)
-          end
-
-        end
-    end
-
-
-    if self.WeaponENT:IsValid() then 
-      local ent = self.WeaponENT
-      ent:SetParent()
-      ent:SetMaterial('null')
-      timer.Simple(0.5,function()
-          if ent:IsValid() then
-              ent:Remove()
-          end
-      end)
-  end
-
+function ENT:GetRealTeamIndex()
+  return (_ZETATEAMS[self.zetaTeam] or 0)
 end
 
+function ENT:DeathFunction(dmginfo)
+  local attacker = dmginfo:GetAttacker()
+  
+  if !self.SilenceDeath then
+    if zetamath.random(1,100) < self.TextChance and (attacker:IsPlayer() or attacker.IsZetaPlayer) and GetConVar("zetaplayer_allowtextchat"):GetBool() then
+        self.text_keyent = (attacker.IsZetaPlayer and attacker.zetaname or attacker:GetName())
+        self:TypeMessage("death")
+    elseif GetConVar('zetaplayer_allowdeathvoice'):GetBool() then
+        self:PlayDeathSound()
+    end
+  end
+
+  if IsValid(attacker) then       
+      if SERVER then
+          local killIcon = nil
+          local inflictor = dmginfo:GetInflictor()    
+          local data = {
+              attacker = "#"..attacker:GetClass(),
+              attackerteam = -1,
+              inflictor = IsValid(inflictor) and inflictor:GetClass() or " ",
+              victim = self.zetaname,
+              victimteam = self:GetRealTeamIndex()
+          }
+          
+          if attacker == self then
+              data.attacker = self.suicidereason or " "
+              data.inflictor = " "
+          elseif attacker:IsPlayer() or attacker:IsNPC() then
+              data.attacker = (attacker:IsPlayer() and attacker:Name() or "#"..attacker:GetClass())
+              data.attackerteam = (attacker:IsPlayer() and attacker:Team() or -1)
+              data.inflictor = ((inflictor == attacker and IsValid(attacker:GetActiveWeapon())) and attacker:GetActiveWeapon():GetClass() or (IsValid(inflictor) and inflictor:GetClass() or " "))
+          elseif attacker.IsZetaC4 or IsValid(inflictor) and inflictor.IsZetaC4 then
+              local attackteamname = ((IsValid(attacker) and attacker.IsZetaPlayer and attacker.zetaTeam) and " {"..attacker.zetaTeam.."}" or " ")
+              data.attacker = (attacker.IsZetaPlayer and attacker.zetaname..attackteamname or (attacker.IsZetaC4 and "C4"))
+              data.attackerteam = (IsValid(attacker) and attacker.IsZetaPlayer and attacker:GetRealTeamIndex() or 0)
+              data.inflictor = " "
+              data.prettyprint = ((IsValid(attacker) and attacker.IsZetaPlayer) and "C4" or nil) 
+          elseif attacker.IsZetaPlayer then
+              killIcon = _ZetaWeaponKillIcons[attacker.Weapon]
+              data.attacker = attacker.zetaname
+              data.attackerteam = attacker:GetRealTeamIndex()
+              data.inflictor = killIcon or " "
+              data.prettyprint = ((IsValid(inflictor) and inflictor:GetClass() == "prop_physics") and "Physics Prop" or attacker.PrettyPrintWeapon)
+          end
+
+          net.Start('zeta_addkillfeed', true)
+              net.WriteString(util.TableToJSON(data))
+              net.WriteBool(killIcon != nil)
+          net.Broadcast()  
+      end
+
+      if GetConVar('zetaplayer_consolelog'):GetBool() then
+          local logText = (self.KillReason or self.zetaname..' was killed by '..(attacker.IsZetaPlayer and attacker:GetNW2String('zeta_name','Zeta Player') or tostring(attacker)))
+          MsgAll('ZETA: '..logText)
+          if GetConVar("zetaplayer_showzetalogonscreen"):GetBool() then
+              net.Start("zeta_sendonscreenlog", true)
+                  net.WriteString(logText)
+                  net.WriteColor(Color(255, 38, 38), false)
+              net.Broadcast()
+          end
+      end
+  end
+
+  local wepEnt = self.WeaponENT
+  if IsValid(wepEnt) then 
+      wepEnt:SetParent()
+      wepEnt:SetMaterial('null')
+      timer.Simple(0.5, function()
+          if !IsValid(wepEnt) then return end
+          wepEnt:Remove()
+      end)
+  end
+end
 
 function ENT:FindNavAreas(pos,distance)
   local navs = navmesh.GetAllNavAreas()
@@ -1616,7 +1659,7 @@ function ENT:ConverseWait()
 
 end
 
-function ENT:GetName()
+function ENT:Name()
   return self.zetaname
 end
 
@@ -1683,7 +1726,7 @@ function ENT:DisconnectfromGame()
     addtime = self:TypeMessage("disconnect")
   end
 
-  timer.Simple( (zetamath.random(1.0,3.0)+addtime) ,function()
+  timer.Simple( (zetamath.Rand(1.0,3.0)+addtime) ,function()
     if !IsValid(self) then return end
     if self.PlayingPoker then self:SetState("sitting") return end
     local r,g,b = self:GetColorByRank()
@@ -1704,43 +1747,6 @@ function ENT:AwardAchievement(award)
       net.WriteString(award)
       net.WriteColor(Color(self:GetColorByRank()))
   net.Broadcast()
-end
-
-function ENT:CheckCurrentDate()
-
-
-  self.SpecificDay = "None"
-  local month = os.date("%B")
-  local weekday = tonumber(os.date("%d"))
-
-
-  local split
-  local birthdaytxt = file.Read("zetaplayerdata/player_birthday.txt","DATA")
-  
-  if birthdaytxt then
-    split = string.Explode(" ",birthdaytxt)
-  end
-  
-   
-  if birthdaytxt and split[1] and split[1] == month and split[2] and tonumber(split[2]) == weekday then
-    self.SpecificDay = "birthday"
-    return
-  elseif month == "July" and weekday == 4 then
-    self.SpecificDay = "4thjuly"
-  elseif month == "November" and weekday == 24 then
-    self.SpecificDay = "thanksgiving"
-  elseif month == "December" and weekday == 25 then
-    self.SpecificDay = "christmas"
-  elseif month == "January" and weekday == 1 then
-    self.SpecificDay = "newyear"
-  elseif month == "April" and weekday == 9 then
-    self.SpecificDay = "easter"
-  elseif month == "April" and weekday == 7 then
-    self.SpecificDay = "addoncreatorbirthday"
-  elseif month == "May" and weekday == 29 then
-    self.SpecificDay = "addoncreationday"
-  end 
-  
 end
 
 function ENT:SetupAchievements()
@@ -1819,7 +1825,7 @@ function ENT:GetCurrentVoiceSNDLEVEL()
   end
 end
 
-function ENT:CanUseDSPEffect()
+--[[ function ENT:CanUseDSPEffect()
   if GetConVar("zetaplayer_limitdsp"):GetInt() == 1 then
     local count = 0
     local zetas = ents.FindByClass("npc_zetaplayer")
@@ -1837,7 +1843,7 @@ function ENT:CanUseDSPEffect()
   else
     return true
   end
-end
+end ]]
 
 
 -- Community Contribute v v v v
@@ -1971,7 +1977,7 @@ function ENT:DanceNearEnt(ent)
       self:SetState('dancing')
       self:FaceTick(ent:GetPos(),200)
       self.SoundPos = ent:GetPos()
-      self.DanceWaittime = zetamath.random(0.5,1.5)
+      self.DanceWaittime = zetamath.Rand(0.5,1.5)
       self.CanDance = false 
       timer.Simple(30,function()
           if IsValid(self) then
@@ -1991,6 +1997,7 @@ function ENT:InitializeHooks()
           self.IsPhysgunCarried = true
       end
   end)
+
   hook.Add("PhysgunDrop", 'ZetaDroppedByPlayer'..entIndex, function(ply,ent)        
       if !IsValid(self) then hook.Remove("PhysgunDrop",'ZetaDroppedByPlayer'..entIndex) return end
       if ent == self then
@@ -2000,8 +2007,7 @@ function ENT:InitializeHooks()
   end)
 
   local armorCvar = 'zetaplayer_zetaarmor'
-  if self.Permafriend then armorCvar = 'zetaplayer_friendarmor'
-  elseif self.IsNatural then armorCvar = 'zetaplayer_naturalzetaarmor' end
+  if self.IsNatural then armorCvar = 'zetaplayer_naturalzetaarmor' end
 
   local armorNum = GetConVar(armorCvar):GetInt()
   self.CurrentArmor = armorNum
@@ -2012,10 +2018,28 @@ function ENT:InitializeHooks()
       
       local attacker = dmginfo:GetAttacker()
 
+      if ent == self and attacker != self then
+        if !GetConVar("zetaplayer_enablefriendlyfire"):GetBool() and self:IsInTeam(attacker) then
+          return true
+        end
+
+        if GetConVar("zetaplayer_nohurtfriends"):GetBool() and self:IsFriendswith(attacker) then
+          return true
+        end
+      end
+
+      
+      if attacker == self and ent:IsPlayer() and self:IsFriendswith(ent) and GetConVar("zetaplayer_nohurtfriends"):GetBool() then
+        return true
+      end
+
       if ent == self then
-          local wepData = self.WeaponDataTable[self.Weapon]
+          local wepData = _ZetaWeaponDataTable[self.Weapon]
           if IsValid(self.WeaponENT) and istable(wepData) and isfunction(wepData.onDamageCallback) then
               wepData:onDamageCallback(self, self.WeaponENT, dmginfo)
+          elseif IsValid(self.WeaponENT) and istable(wepData) and isstring(wepData.onDamageCallback) then
+            local func = CompileString( wepData.onDamageCallback, "[OnDamaged] Custom Weapon " .. self.PrettyPrintWeapon )
+            func( self, self.WeaponENT, dmginfo )
           end
 
           if dmginfo:IsDamageType(DMG_POISON) then
@@ -2079,9 +2103,9 @@ function ENT:InitializeHooks()
       local friendattacker = self:GetFriendByID(attacker:GetCreationID())
 
       if IsValid(friendattacker) and attacker == friendattacker and !self:IsFriendswith(ent) then
-          if self:CanSee(ent) == false then DebugText("Was going to assist my friend but I can't see the target") return end
+          if !self:CanSee(ent) then DebugText("Was going to assist my friend but I can't see the target") return end
           DebugText("Going to assist my friend")
-          if self.HasLethalWeapon == false then
+          if !self.HasLethalWeapon then
               self:ChooseLethalWeapon()
           end
           if !self.HasLethalWeapon or self.Weapon == 'NONE' then return end
@@ -2092,10 +2116,10 @@ function ENT:InitializeHooks()
       end
 
       if self:IsInTeam(ent) or self:GetFriendByID(ent:GetCreationID()) and attacker != ent and !self:IsFriendswith(attacker) then
-          if self:CanSee(ent) == false then return end
+          if !self:CanSee(ent)  then return end
           if !GetConVar('zetaplayer_allowdefendothers'):GetBool() then return end
           DebugText("Going to defend my friend")
-          if self.HasLethalWeapon == false then
+          if !self.HasLethalWeapon then
               self:ChooseLethalWeapon()
           end
           if !self.HasLethalWeapon or self.Weapon == 'NONE' then return end
@@ -2106,11 +2130,11 @@ function ENT:InitializeHooks()
           self:SetState('chase'..(!self.HasMelee and 'ranged' or 'melee'))
       end
 
-      if attacker:GetNW2Bool('zeta_aggressor',false) == true or ent:GetNW2Bool('zeta_aggressor',false) == false and self:GetPos():Distance(attacker:GetPos()) <= self.SightDistance and !self:IsFriendswith(attacker) and !ent:IsNPC()  then                
+      if attacker:GetNW2Bool('zeta_aggressor',false) or !ent:GetNW2Bool('zeta_aggressor',false) and self:GetPos():Distance(attacker:GetPos()) <= self.SightDistance and !self:IsFriendswith(attacker) and !ent:IsNPC()  then                
           if zetamath.random(1,30) == 1 then
-              if self:CanSee(dmginfo:GetAttacker()) == false then return end
+              if !self:CanSee(dmginfo:GetAttacker()) then return end
               DebugText('Going to defend some random guy')
-              if self.HasLethalWeapon == false then
+              if !self.HasLethalWeapon then
                   self:ChooseLethalWeapon()
               end
               if !self.HasLethalWeapon then return end
@@ -2185,13 +2209,17 @@ function ENT:InitializeHooks()
           timer.Simple(ent.NextProcessTime, function()
               if !IsValid(self) or !IsValid(ent) then return end
               if self:GetVJSNPCRelationship(ent) == D_HT then
-                  table.insert(ent.VJ_AddCertainEntityAsEnemy, self)
-                  table.insert(ent.CurrentPossibleEnemies, self)
+                  if ent.VJ_AddCertainEntityAsEnemy then
+                    table.insert(ent.VJ_AddCertainEntityAsEnemy, self)
+                  end
+                  if ent.CurrentPossibleEnemies then
+                    table.insert(ent.CurrentPossibleEnemies, self)
+                  end
                   ent:AddEntityRelationship(self,D_HT)
               end
 
               ent.IsHookedByZetaPlayer = ent.IsHookedByZetaPlayer or false
-              if ent.IsHookedByZetaPlayer == false then
+              if !ent.IsHookedByZetaPlayer then
                   ent.IsHookedByZetaPlayer = true
                   ExecuteVJBaseTweaks(ent)
               end
@@ -2213,7 +2241,7 @@ function ENT:InitializeHooks()
           end
 
           npc.IsHookedByZetaPlayer = npc.IsHookedByZetaPlayer or false
-          if npc.IsHookedByZetaPlayer == false then
+          if !npc.IsHookedByZetaPlayer  then
               npc.IsHookedByZetaPlayer = true
               ExecuteVJBaseTweaks(npc)
           end
@@ -2225,39 +2253,13 @@ function ENT:InitializeHooks()
       if !IsValid(Zeta) then return end
       if self.IsAttacking == true then return end
       if Zeta != self and Zeta:GetPos():Distance(self:GetPos()) <= 600 and zetamath.random(1,2) == 1 then
-          timer.Simple(zetamath.random(0.0,1.0),function()
+          timer.Simple(zetamath.Rand(0.0,1.0),function()
               if !self:IsValid() then return end
               self:Respond()
           end)
       end 
   end)
 
-  hook.Add("OnUpdateRegisteredMats","ZetaUpdateuseablemats"..entIndex,function() -- Self explanatory
-      if !IsValid(self) then hook.Remove("OnUpdateRegisteredMats","ZetaUpdateuseablemats"..entIndex) return end
-      local jsonfile = file.Read('zetaplayerdata/materials.json','DATA')
-      local decoded = util.JSONToTable(jsonfile)
-
-      self.ValidMaterials = decoded
-      DebugText('VALIDMATERIALS: Updated Registered Materials!')
-  end)
-
-  hook.Add("OnUpdateRegisteredProps","ZetaUpdatespawnableprops"..entIndex,function() -- Self explanatory
-      if !IsValid(self) then hook.Remove("OnUpdateRegisteredProps","ZetaUpdatespawnableprops"..entIndex) return end
-      local jsonfile = file.Read('zetaplayerdata/props.json','DATA')
-      local decoded = util.JSONToTable(jsonfile)
-
-      self.ValidProps = decoded
-      DebugText('VALIDPROPS: Updated Registered Props!')
-  end)
-
-  hook.Add("OnUpdateRegisteredENTs","ZetaUpdatespawnableents"..entIndex,function() -- Self explanatory
-      if !IsValid(self) then hook.Remove("OnUpdateRegisteredENTs","ZetaUpdatespawnableents"..entIndex) return end
-      local jsonfile = file.Read('zetaplayerdata/ents.json','DATA') 
-      local decoded = util.JSONToTable(jsonfile)
-      
-      self.ValidENTS = decoded
-      DebugText('VALIDNPCS: Updated Registered Entities!')
-  end)
 
   hook.Add('EntityEmitSound', 'zetalistenformusic'..entIndex, function(snddata) -- This is how Zetas hear music
       if !IsValid(self) then hook.Remove('EntityEmitSound', 'zetalistenformusic'..entIndex) return end
@@ -2283,7 +2285,7 @@ function ENT:InitializeHooks()
           self:SetState('dancing')
           self:FaceTick(emitpos,200)
           self.SoundPos = emitpos
-          self.DanceWaittime = zetamath.random(0.5,1.5)
+          self.DanceWaittime = zetamath.Rand(0.5,1.5)
           self.CanDance = false 
           timer.Simple(30,function()
               if self and self:IsValid() then
@@ -2294,7 +2296,8 @@ function ENT:InitializeHooks()
   end)
 
   hook.Add("EntityRemoved", 'zetacheckremoved'..entIndex, function(ent) -- stop dancing if the entity playing the music just gets deleted
-      if !self.MusicEnt or ent != self.MusicEnt then return end
+      if !IsValid(self) then hook.Remove("EntityRemoved", 'zetacheckremoved'..entIndex) return end
+      if !self.MusicEnt or ent != self.MusicEnt then hook.Remove("EntityRemoved", 'zetacheckremoved'..entIndex) return end
       self:SetState('idle')
       self.MusicEnt = nil
   end)
@@ -2315,9 +2318,11 @@ function ENT:InitializeHooks()
   end
 
   hook.Add("ZetaOnStateChanged", "zetastatechangedhook"..entIndex, function(zeta, old, new)
+    if !IsValid(self) then hook.Remove("ZetaOnStateChanged", "zetastatechangedhook"..entIndex) return end
       if !GetConVar("zetaplayer_allowinterrupting"):GetBool() then return end
       if zeta == self and (new == "chaseranged" or new == "chasemelee" or new == "panic") and self.TypingChatText != nil then
           local tbl = self.TypingChatText
+          local col = tbl[4]
           local phraseLen = tbl[1]:len()
           local wordsTyped = math.Round(phraseLen * (CurTime()-tbl[2]) / tbl[3])
           if wordsTyped < phraseLen then
@@ -2335,7 +2340,7 @@ function ENT:InitializeHooks()
               end
 
               timer.Remove("zetaTypeChatMessage"..self:EntIndex())
-              self:SendTextMessage(self.TypingChatText, tbl[4])
+              self:SendTextMessage(self.TypingChatText,col)
           end
       end
   end)
@@ -2348,7 +2353,7 @@ function ENT:InitializeHooks()
       if self:GetState() == "conversation" or self:GetState() == "adminsit" or self:GetState() == "jailed/held" then return end
 
       local isMentioned = string.find(string.lower(text), string.lower(self.zetaname))
-      if isMentioned != nil or (zeta != self and zetamath.random(200) < self.TextChance and CurTime() > respondCooldown) then
+      if isMentioned != nil and zetamath.random(30) < self.TextChance or (zeta != self and zetamath.random(200) < self.TextChance and CurTime() > respondCooldown) then
           self.text_keyent = name
           self.text_response = text
           self:TypeMessage("response")
@@ -2371,7 +2376,7 @@ function ENT:InitializeHooks()
 
     if self:GetState() == "conversation" or self:GetState() == "adminsit" or self:GetState() == "jailed/held" then return end
 
-    if GetConVar("zetaplayer_allowtextchat"):GetBool() then
+    if GetConVar("zetaplayer_allowtextchat"):GetBool() and zetamath.random(1,2) == 1 then
       if (ply:GetEyeTrace().Entity == self and self:GetRangeSquaredTo(ply) < (100*100)) or (200 * zetamath.random() < self.TextChance and CurTime() > respondCooldown and self:GetRangeSquaredTo(ply) < (100*100)) then
           self.text_keyent = IsValid(ply) and ply:GetName()
           self.text_response = text
@@ -2379,22 +2384,31 @@ function ENT:InitializeHooks()
           respondCooldown = CurTime()+5
           return
       end
+    else
+      if (ply:GetEyeTrace().Entity == self and self:GetRangeSquaredTo(ply) < (100*100)) or (100 * zetamath.random() < self.VoiceChance and self:GetRangeSquaredTo(ply) < (100*100)) then
+        if zetamath.random(1,2) == 1 then
+          self:PlayRespondLine()
+        else
+          self:PlayIdleLine()
+        end
+        return
     end
-
-    if (100 * zetamath.random() < self.VoiceChance and self:GetRangeSquaredTo(ply) < (100*100)) then
-      if zetamath.random(1,2) == 1 then
-        self:PlayRespondLine()
-      else
-        self:PlayIdleLine()
-      end
-      return
   end
 
   end)
 
 
+  local comeherestatements = {
+    "come here",
+    "come",
+    "come over here",
+    "make your way",
+    "get over here",
+    "come over",
+  }
 
-  hook.Add("PlayerSay","zetarealplayersay"..entIndex,function(ply,text)
+
+  hook.Add("PlayerSay","zetarealplayersay"..entIndex,function( ply, text )
       if !IsValid(self) then hook.Remove("PlayerSay","zetarealplayersay"..entIndex) return end
       if self:IsChasingSomeone() then return end
 
@@ -2407,9 +2421,78 @@ function ENT:InitializeHooks()
           return
       end
 
+      local isMentioned = string.find( string.lower( text ), string.lower( self.zetaname ) )
+      local friends = string.find( string.lower( text ), "friends" )
+      local follow = string.find( string.lower( text ), "follow" )
+      local stopfollow = string.find( string.lower( text ), "stop" )
+      local convo = string.find( string.lower( text ), "conversation" )
+      local comehere
+
+      for i=1, #comeherestatements do
+
+        comehere = string.find( string.lower( text ), comeherestatements[ i ] )
+
+        if comehere then break end
+      end
+
+      if isMentioned and ( stopfollow or follow) and self.TextChatMentioner == ply and self:GetState() == "followmentioner" then
+        self:CancelMove()
+        self:SetState( "idle" )
+      end
+
+    if ( isMentioned or friends and self:IsFriendswith( ply ) ) and follow and ( zetamath.random( 1, 100 ) < self.FriendlyChance or self:IsFriendswith( ply ) ) then
+
+        if zetamath.random( 1, 100 ) < self.TextChance and GetConVar("zetaplayer_allowtextchat"):GetBool() then
+          self.text_keyent = ply:GetName()
+          self:TypeMessage( "acknowledge" )
+        end
+
+        self:CancelMove()
+
+        self.followtimeout = CurTime() + 60
+
+        self.TextChatMentioner = ply
+        self:SetState( "followmentioner" )
+
+      return
+      elseif isMentioned and convo and ( zetamath.random( 1, 100 ) < self.FriendlyChance or self:IsFriendswith( ply ) ) and self:GetRangeSquaredTo( ply ) <= ( 500 * 500 ) then
+
+        self:CancelMove()
+
+        
+        self.ConversePartner = ply
+        self.ConverseTimesMax = math.random(4,15)
+        self.ConverseTimes = 0
+        self.AllowResponse = true
+        self.StartedConverse = true
+        self.Question = true
+        self.Respond = false
+        self.ConverseBegan = false
+
+        self:SetState("conversation")
+
+      return
+      elseif ( isMentioned or friends and self:IsFriendswith( ply ) ) and comehere and ( zetamath.random( 1, 100 ) < self.FriendlyChance or self:IsFriendswith( ply ) ) then
+
+        if zetamath.random( 1, 100 ) < self.TextChance and GetConVar("zetaplayer_allowtextchat"):GetBool() then
+          self.text_keyent = ply:GetName()
+          self:TypeMessage( "acknowledge" )
+        end
+
+        self:CancelMove()
+
+        self.TextChatMentioner = ply
+        self:SetState( "gotomentioner" )
+
+
+
+        return
+      end
+
+
       if !GetConVar("zetaplayer_allowtextchat"):GetBool() then return end
-      local isMentioned = string.find(string.lower(text), string.lower(self.zetaname))
-      if isMentioned != nil or (ply:GetEyeTrace().Entity == self and self:GetRangeSquaredTo(ply) < (100*100)) or (200 * zetamath.random() < self.TextChance and CurTime() > respondCooldown) then
+      
+      if isMentioned != nil and zetamath.random(30) < self.TextChance or (ply:GetEyeTrace().Entity == self and self:GetRangeSquaredTo(ply) < (100*100)) or (200 * zetamath.random() < self.TextChance and CurTime() > respondCooldown) then
           self.text_keyent = IsValid(ply) and ply:GetName()
           self.text_response = text
           self:TypeMessage("response")
@@ -2425,6 +2508,7 @@ function ENT:InitializeHooks()
         if !attacker:IsPlayer() and attacker.IsAdmin then return end
         if self:IsFriendswith(attacker) then return end
         if attacker == self then return end
+        if self:GetState() == "adminsit" then return end
         
         if self:CanSee(attacker) and !attacker.AdminHandled and attacker:IsPlayer() or attacker.IsZetaPlayer and self:GetRangeSquaredTo(attacker) <= (self.SightDistance*self.SightDistance) then
             self.CurrentRuleData = {
@@ -2435,6 +2519,7 @@ function ENT:InitializeHooks()
             }
 
             self:CancelMove()
+            self:SetEnemy(NULL)
             self:SetState("adminsit")
         end
     end)
@@ -2479,8 +2564,10 @@ function ENT:InitializeHooks()
                 self.HealThanksCooldown = CurTime() + 20
                 self:PlayAssistSound()
             end
+
+            local creator = v:GetCreator()
             
-            if zetamath.random(20) == 1 and GetConVar("zetaplayer_enablefriend"):GetBool() and IsValid(v:GetCreator()) then
+            if zetamath.random(20) == 1 and GetConVar("zetaplayer_enablefriend"):GetBool() and IsValid(creator) and (creator:IsPlayer() or creator.IsZetaPlayer) then
               self:AddFriend(v:GetCreator())
             end
         end
@@ -2557,9 +2644,8 @@ function ENT:GetColorByRank()
     end
 
     if self:IsInTeam(Entity(1)) then
+      if !self.TeamColor then self.TeamColor = self.PlayermodelColor:ToColor() self:SetNW2Vector("zeta_teamcolor",self.PlayermodelColor) end
       r,g,b = self.TeamColor.r,self.TeamColor.g,self.TeamColor.b
-    elseif self.zetaTeam then
-        r,g,b = self.TeamColor.r,self.TeamColor.g,self.TeamColor.b
     end
 
     return r,g,b
@@ -2582,12 +2668,7 @@ function ENT:GetColorByRank()
         r,g,b = GetConVar('zetaplayer_admindisplaynameRed'):GetInt(),GetConVar('zetaplayer_admindisplaynameGreen'):GetInt(),GetConVar('zetaplayer_admindisplaynameBlue'):GetInt()
     end
 
-    if self:IsInTeam(Entity(1)) then
-      if !self.TEAMCOLORCACHE then
-        self.TEAMCOLORCACHE = self:GetNW2Vector("zeta_teamcolor",Vector(1,1,1)):ToColor()
-      end
-      r,g,b = self.TEAMCOLORCACHE.r,self.TEAMCOLORCACHE.g,self.TEAMCOLORCACHE.b
-    elseif self.zetaTeam != "" then
+    if self.zetaTeam != "" then
       if !self.TEAMCOLORCACHE then
         self.TEAMCOLORCACHE = self:GetNW2Vector("zeta_teamcolor",Vector(1,1,1)):ToColor()
       end
@@ -2667,6 +2748,33 @@ function ENT:GetBackPos()
 end
 
 
+function ENT:GetTeamSpawnTeams()
+
+  local teamspawnTEAMS = {}
+  local teams = file.Read('zetaplayerdata/teams.json','DATA')
+  local decoded = util.JSONToTable(teams)
+  local spawns = ents.FindByClass("zeta_teamspawnpoint")
+
+  if #spawns == 0 then
+    
+    return decoded
+  end
+
+  for k,teamtbl in ipairs(decoded) do
+
+    for i,l in ipairs(spawns) do
+
+      if teamtbl[1] == l.teamspawn then
+        teamspawnTEAMS[#teamspawnTEAMS+1] = teamtbl
+        break 
+      end
+
+    end
+
+  end
+  return teamspawnTEAMS
+end
+
 -- New friend system stuff
 
 function ENT:AddFriend(ent,forceadd) -- This will call canbefriendswith(). Use Forceadd if you want to bypass that
@@ -2675,27 +2783,40 @@ function ENT:AddFriend(ent,forceadd) -- This will call canbefriendswith(). Use F
   if !GetConVar("zetaplayer_allowfriendswithzetas"):GetBool() and ent.IsZetaPlayer and !forceadd then return end
   if !GetConVar("zetaplayer_allowfriendswithplayers"):GetBool() and ent:IsPlayer() and !forceadd then return end
   if self.Friends[ent:GetCreationID()] then return end
+  if ent == self then return end
 
   if ent:IsPlayer() then
     self:SetNW2Bool("zeta_showfriendstat",true)
   end
 
   if !istable(ent.Friends) then
+
     ent.Friends = {}
+
   elseif istable(ent.Friends) then
+    
     for _,v in pairs(ent.Friends) do
+      if !IsValid( v ) then continue end
+      if !self:CanBeFriendsWith(v) or !v:CanBeFriendsWith(self) then continue end
+
       if !v.Friends then
         v.Friends = {}
       end
+
       if v:IsPlayer() then
         self:SetNW2Bool("zeta_showfriendstat",true)
       end
+
       v.Friends[self:GetCreationID()] = self
       self.Friends[v:GetCreationID()] = v
+
     end
+
   end
+
   ent.Friends[self:GetCreationID()] = self
   self.Friends[ent:GetCreationID()] = ent
+  
 end
 
 function ENT:GetRandomFriend()
@@ -2726,6 +2847,16 @@ function ENT:CanBeFriendsWith(ent)
     end
   end
 
+  for _,v in pairs( self.Friends ) do
+    
+    if IsValid(v) then
+
+      count = count + 1
+
+    end
+
+  end 
+
   return count < maxfriendcount
 end
 
@@ -2743,6 +2874,10 @@ function ENT:RemoveFriend(ent)
   if istable(ent.Friends) then
     ent.Friends[self:GetCreationID()] = nil
   end
+
+  if IsValid( self.Spawner ) then
+    self.Spawner.Friends[ent:GetCreationID()] = nil
+end
 
 end
 
@@ -2777,7 +2912,7 @@ function ENT:UpdateFriendlist()
   local strin = "Friends with: "
   local count = 0
   for _, v in pairs(friends) do
-      local name = v:IsPlayer() and v:GetName() or v.zetaname
+      local name = v:IsPlayer() and v:GetName() or v.zetaname or "Zeta Player"
       count = count + 1
       strin = strin..name..(count < friendCount and ", " or " ")
       if count > 3 then
@@ -2800,8 +2935,8 @@ end
 
 function ENT:IsVehicleEnterable(veh)
   if veh.IsSimfphyscar and (veh:OnFire()) then return false end
-  if math.abs(veh:GetAngles().r) >= 100 then return false end
-  return (veh:IsVehicle() and isfunction(veh.GetDriver) and !IsValid(veh:GetDriver()) and (veh.IsSimfphyscar and !veh:GetActive() or isfunction(veh.IsEngineStarted) and !veh:IsEngineStarted()) and !veh.Zetadriven)
+  if math.abs(veh:GetAngles().r) >= 100 and !self:IsNormalSeat( veh ) then return false end
+  return (veh:IsVehicle() and isfunction(veh.GetDriver) and !IsValid(veh:GetDriver()) and (veh.IsSimfphyscar and !veh:GetActive() and !veh.Zetadriven or isfunction(veh.IsEngineStarted) and !veh:IsEngineStarted()) and !veh.Zetadriven)
 end
 
 function ENT:SetEyeAngles(ang)
@@ -3185,6 +3320,8 @@ function ENT:GetPokerWinner(pokerTbl)
   local highestvalue
   local winningplayer
 
+  if !players then return self end
+
   for k,playertbl in ipairs(players) do
 
     if playertbl.fold then continue end
@@ -3244,7 +3381,7 @@ function ENT:ComputeChances()
   
   for k,chances in ipairs(self.PERSCHANCES) do
       if math.random(1,100) < chances.chance then
-          if (chances.chance == 100 and hundreds > 1 and math.random(1,2) == 1) then print(chances[1]," is giving the next 100 a try") hundreds = hundreds - 1 continue end
+          if (chances.chance == 100 and hundreds > 1 and math.random(1,2) == 1) then hundreds = hundreds - 1 continue end
           
           --print(chances[1]," succeeded its chance ["..chances.chance.."]")
           hundreds = hundreds - 1
@@ -3270,186 +3407,27 @@ function ENT:Kill()
   self:OnKilled(dmginfo)
 end
 
--- Some metas
-
-local Vect = FindMetaTable( 'Vector' )
-local Angl = FindMetaTable( 'Angle' )
-local Entmeta = FindMetaTable('Entity')
-
-
-function Entmeta:GetCenteroid()
-  return (self:GetPos() + self:OBBCenter())
-end
-
-function Entmeta:Disintegrate()
-  if !self:IsValid() then return end
-  local effect = EffectData()
-  effect:SetOrigin(self:GetPos()+self:OBBCenter())
-  effect:SetEntity(self)
-  util.Effect('entity_remove',effect,true,true)
-  sound.Play('zetaplayer/misc/zetadisintegrate'..zetamath.random(1,3)..'.wav', self:GetPos(), 52)
-  for i=1, self:GetPhysicsObjectCount() do
-    local phys = self:GetPhysicsObjectNum(i)
-    if IsValid(phys) then
-      phys:ApplyForceCenter(Vector(0,0,700))
-      phys:EnableGravity(false)
-    end
-  end
-  timer.Simple(1.5,function()
-    if !self:IsValid() then return end
-    local effect = EffectData()
-    effect:SetOrigin(self:GetPos()+self:OBBCenter())
-    effect:SetMagnitude(3)
-    effect:SetScale(2)
-    effect:SetRadius(4)
-    util.Effect('Sparks',effect,true,true)
-    
-    local effect = EffectData()
-    effect:SetOrigin(self:GetPos()+self:OBBCenter())
-
-    util.Effect('cball_explode',effect,true,true)
-    sound.Play('zetaplayer/misc/zetadisappear.wav', self:GetPos(), 52)
-    if GetConVar("zetaplayer_explosivecorpsecleanup"):GetInt() == 1 then
-      util.BlastDamage( self, self, self:GetPos(), 250, zetamath.random(1,500) )
-      if CLIENT then
-        net.Start('zeta_csragdollexplode', true)
-          net.WriteVector(self:GetPos())
-        net.SendToServer()
-      end
-
-      local effectdata = EffectData()
-      effectdata:SetOrigin( self:GetPos() )
-      self:EmitSound("BaseExplosionEffect.Sound")
-      util.Effect( "Explosion", effectdata, true, true )
-  end
-    self:Remove()
-  end)
-end
-
-function Entmeta:Dissolve()
-  if !self:IsValid() then return end
-  local disintegrator  = ents.Create('env_entity_dissolver')
-  if not IsValid(disintegrator) then return end
-  self:SetName("disintegratortarget "..self:GetClass()..self:EntIndex())
-  
-  disintegrator:SetKeyValue("target", self:GetName())
-  disintegrator:SetKeyValue("dissolvetype", tostring(zetamath.random(0,2)))
-  disintegrator:Fire("dissolve")
-  disintegrator:Remove()
-end
-
-function Entmeta:GetBackPos()
-  local bone = self:LookupBone("ValveBiped.Bip01_Spine2")
-
-  if bone then
-    return self:GetBonePosAngs(bone)
-  else
-    local maxs = self:OBBMaxs()
-    maxs[1] = 0
-    maxs[2] = 0
-    return self:GetPos()+maxs
+function ENT:GetMovementData(pos)
+  local movespeed = pos == "run" and GetConVar("zetaplayer_runspeed"):GetInt() or pos == "walk" and GetConVar("zetaplayer_walkspeed"):GetInt() or self:GetTravelDistance(pos) >= 1000 and GetConVar("zetaplayer_runspeed"):GetInt() or GetConVar("zetaplayer_walkspeed"):GetInt()
+  local animation = self:GetActivityWeapon('move')
+  if movespeed < 200 then
+    animation = walkAnimTranslations[self:GetActivityWeapon('move')]
   end
 
-end
-
-function Entmeta:GetBonePosAngs(index)
-  local pos,angle = self:GetBonePosition(index)
-  if pos and pos == self:GetPos() then
-    local matrix = self:GetBoneMatrix(index)
-    if ismatrix(matrix) and matrix != nil then
-      pos = matrix:GetTranslation()
-    else
-      return {Pos = (self:GetPos()+self:OBBCenter()),Ang = self:GetForward():Angle()}
-    end
-  elseif !pos then
-    pos = self:GetPos()+self:OBBCenter()
-  end
-  return {Pos = pos,Ang = angle}
-end
-
-function Entmeta:MoveMouth(weight)
-	if !self:IsValid() then return end
-
-	local jaw_drop = self:GetFlexIDByName( "jaw_drop" )
-	if jaw_drop then
-		self:SetFlexWeight( jaw_drop, weight )
-	end
-	local lmouth_drop = self:GetFlexIDByName( "left_mouth_drop" )
-	if lmouth_drop then
-		self:SetFlexWeight( lmouth_drop, weight )
-	end
-	local rmouth_drop = self:GetFlexIDByName( "right_mouth_drop" )
-	if rmouth_drop then
-		self:SetFlexWeight( rmouth_drop, weight )
-	end
-
-end
-
-function Entmeta:AttemptGiveWeapons()
-  local npcList = list.Get('NPC')
-  local npcData = npcList[self:GetClass()]
-  if npcData != nil and npcData.Weapons != nil then
-    local wepTbl = npcData.Weapons
-    self:SetKeyValue('additionalequipment', wepTbl[zetamath.random(#wepTbl)])
-    return
-  end
-
-  if self:GetClass() == 'npc_combine_s' then
-    local weapon = {'weapon_ar2','weapon_smg1'}
-    self:SetKeyValue('additionalequipment',weapon[zetamath.random(2)])
-  end
-
-  if self:GetClass() == 'npc_metropolice' then
-    local weapon = {'weapon_stunstick','weapon_smg1','weapon_pistol'}
-    self:SetKeyValue('additionalequipment',weapon[zetamath.random(3)])
-  end
-
-  if self:GetClass() == 'npc_citizen' then
-    local weapon = {'weapon_smg1','weapon_pistol','weapon_shotgun','weapon_ar2'}
-    self:SetKeyValue('additionalequipment',weapon[zetamath.random(4)])
-  end
-
-  if self:GetClass() == 'npc_alyx' then
-    self:SetKeyValue('additionalequipment','weapon_alyxgun')
-  end
-
-  if self:GetClass() == 'npc_barney' then
-    local weapon = {'weapon_ar2','weapon_smg1'}
-    self:SetKeyValue('additionalequipment',weapon[zetamath.random(2)])
+  if _ZetaWeaponDataTable[self.Weapon].moveSpeed then -- Add weapon speed to the current speed we are at if the weapon has a move speed modifier 
+    movespeed = movespeed + _ZetaWeaponDataTable[self.Weapon].moveSpeed
   end
   
-
+  return movespeed,animation
 end
 
-
-function Vect:SetX(num)
-  local vec = Vector(num,self.y,self.z)
-  return vec
+function ENT:EyePos()
+  return self:GetAttachmentPoint("eyes").Pos
 end
 
-function Vect:SetY(num)
-  local vec = Vector(self.x,num,self.z)
-  return vec
+function ENT:EyeAngles()
+  return self:GetAttachmentPoint("eyes").Ang
 end
 
-function Vect:SetZ(num)
-  local vec = Vector(self.x,self.y,num)
-  return vec
-end
-
-function Angl:SetP(num)
-  local ang = Angle(num,self.y,self.r)
-  return ang
-end
-
-function Angl:SetY(num)
-  local ang = Angle(self.p,num,self.r)
-  return ang
-end
-
-function Angl:SetR(num)
-  local ang = Angle(self.p,self.y,num)
-  return ang
-end
 
 -----------------------------------------------

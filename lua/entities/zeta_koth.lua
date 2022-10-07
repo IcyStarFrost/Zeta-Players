@@ -27,6 +27,7 @@ function ENT:Initialize()
         self.Identity = keynames[math.random(#keynames)]..self:GetCreationID()
         if self.Overridename then
             self.Identity = self.Overridename
+            self:SetNW2String("zetakoth_identity",self.Identity)
         end
         self:SetNW2String("zetakoth_identity",self.Identity)
     end
@@ -46,7 +47,7 @@ function ENT:IsContested()
     local capturearea = ents.FindInSphere(self:GetPos(), 500)
     local curteam 
     for k,v in ipairs(capturearea) do
-        if IsValid(v) and (v.IsZetaPlayer or v:IsPlayer() and !GetConVar("ai_ignoreplayers"):GetBool()) then
+        if IsValid(v) and (v.IsZetaPlayer or v:IsPlayer() and !GetConVar("ai_ignoreplayers"):GetBool()) and self:CanSee(v) then
             if !curteam then
                 curteam = v.zetaTeam
             else

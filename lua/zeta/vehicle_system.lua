@@ -6,7 +6,17 @@ AddCSLuaFile()
 
 if ( CLIENT ) then return end
 
-local IsValid = IsValid
+local oldisvalid = IsValid
+
+local function IsValid( ent )
+    if oldisvalid( ent ) and ent.IsZetaPlayer then
+        
+        return !ent.IsDead 
+    else
+        return oldisvalid( ent )
+    end
+end
+
 
 ENT.PreventExitOnFirst = true
 
@@ -14,9 +24,26 @@ function ENT:IsNormalSeat(ent)
     return (_ZETANORMALSEATS[ent:GetModel()] or false)
 end
 
-function ENT:EnterVehicle(vehicle,IsCar)
-    if !IsValid(vehicle) or IsValid(vehicle:GetDriver()) and vehicle:GetDriver() != self then return end
+function ENT:CheckVehicle(ent)
+    -- Apparently these if statements makes the Zetas properly sit in passenger seats of simfphys and not the direct return down below
+    -- Oh well! It works so that's fine. 10/10 programmer statement
+    if ent.IsSimfphyscar and !ent.Zetadriven then
+        return ent
+    end
+    if IsValid(ent:GetParent()) and ent:GetParent().IsSimfphyscar and !ent:GetParent().Zetadriven then
+        return ent:GetParent()
+    end
 
+    return ent
+    --[[ return ent.IsSimfphyscar and !ent.Zetadriven and ent or IsValid(ent:GetParent()) and ent:GetParent().IsSimfphyscar and !ent.Zetadriven and ent:GetParent() or ent ]]
+end
+
+function ENT:InVehicle()
+    return self.IsDriving
+end
+
+function ENT:EnterVehicle(vehicle,IsCar)
+    if !IsValid(vehicle) or IsValid(vehicle:GetDriver()) and vehicle:GetDriver() != self or vehicle.Zetadriven then return end
     local entIndex = self:EntIndex()
 
     if vehicle.IsSimfphyscar then
@@ -46,7 +73,6 @@ function ENT:EnterVehicle(vehicle,IsCar)
         if IsCar then vehicle:StartEngine(true) end
         vehicle:SetSaveValue("m_hNPCDriver", self)
         vehicle.SeatAttachment = seatAttach
-
         self:SetMoveType(MOVETYPE_NONE)
         self:SetPos(seatData.Pos)
         self:SetAngles(seatData.Ang)
@@ -67,6 +93,7 @@ function ENT:EnterVehicle(vehicle,IsCar)
 
     self:CreateThinkFunction("FixVehicleTransformations", 0, 0, function()
         if !IsValid(self.Vehicle) then return "stop" end
+        if self:GetState() != "driving" and self:GetState() != "sitting" then self:ExitVehicle() return "stop" end
         if self.Vehicle.IsSimfphyscar then
             local seatEnt = self.Vehicle:GetDriverSeat()
             self:SetPos(seatEnt:GetPos())

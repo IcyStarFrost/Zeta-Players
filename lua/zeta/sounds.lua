@@ -23,8 +23,10 @@ end
 
 
 
+
 function ENT:ZetaPlayVoiceSound(sndName, callRemove, stopPlaying)
-	if stopPlaying and (self.IsSpeaking == true or self.AllowVoice == false) then return end
+	if stopPlaying and (self.IsSpeaking == true ) then return 0 end
+    if GetConVar("zetaplayer_maxspeakingzetas"):GetInt() != 0 and #self:GetSpeakingZetas() >= GetConVar("zetaplayer_maxspeakingzetas"):GetInt() then return 0 end
 	self.IsSpeaking = true
 
     local sndPitch = self.VoicePitch
@@ -46,11 +48,13 @@ function ENT:ZetaPlayVoiceSound(sndName, callRemove, stopPlaying)
 
 
 	if GetConVar("zetaplayer_allowvoicepopup"):GetInt() == 1 then
+		local popupColor = ((self.TeamColor and GetConVar("zetaplayer_voicepopup_useteamcolor"):GetBool()) and self.TeamColor or Color(0, 255, 0))
 		net.Start("zeta_voicepopup",true)
 			net.WriteString(self.zetaname)
 			net.WriteString(self.ProfilePicture)
 			net.WriteFloat(sndDur)
-			net.WriteInt(zetaID,32)
+			net.WriteInt(zetaID, 32) -- sndID for 'ENT:OnRemove()'
+            net.WriteColor(popupColor)
 		net.Broadcast()
 	end
 
@@ -66,9 +70,18 @@ function ENT:ZetaPlayVoiceSound(sndName, callRemove, stopPlaying)
             net.WriteInt(sndPitch,32)
 		net.Broadcast()
 	else
-		self:EmitSound(sndName, sndLvl, sndPitch, GetConVar('zetaplayer_voicevolume'):GetFloat(), CHAN_AUTO, 0, self.VoiceDSP)
+		self:EmitSound(sndName, sndLvl, sndPitch, GetConVar('zetaplayer_voicevolume'):GetFloat(), CHAN_AUTO, 0)
 		if callRemove != nil and string.len(callRemove) > 0 then self:CallOnRemove(callRemove, function() self:StopSound(sndName) end) end
 	end
+
+--[[     _ZETASPEAKINGLIMIT = _ZETASPEAKINGLIMIT + 1
+    
+    timer.Create( "zetaremovespeakinglimit" .. self:EntIndex(), sndDur, 1 ,function()
+        if !IsValid( self ) then return end 
+        if _ZETASPEAKINGLIMIT < 0 then _ZETASPEAKINGLIMIT = 0 return end
+        
+        _ZETASPEAKINGLIMIT = _ZETASPEAKINGLIMIT - 1
+    end) ]]
 
 	timer.Simple(sndDur, function() 
 		if !self:IsValid() then return end 
@@ -81,13 +94,27 @@ end
 
 
 
+function ENT:GetSpeakingZetas()
+    local zetas = {}
 
+    for k, v in ipairs( ents.FindByClass( "npc_zetaplayer" ) ) do
+
+        if IsValid( v ) and v.IsSpeaking then
+
+            zetas[ #zetas + 1 ] = v
+
+        end
+
+    end
+
+    return zetas
+end
 
 
 
 function ENT:SayQuestion() -- Say a question. It may be answered of there is another Zeta
     if self.IsSpeaking == true then return end
-    if self.AllowVoice == false then return end
+
 
     local dur
     local rnd = math.random(1,31)
@@ -110,7 +137,7 @@ end
 function ENT:Respond() -- Respond to someone else's question
     if self.IsSpeaking == true then return end
     if self:GetState() == 'chasemelee' then return end
-    if self.AllowVoice == false then return end
+
     
 
     local rnd = math.random(1,40)
@@ -134,7 +161,7 @@ function ENT:PlayDeathSound()
         snd = "zetaplayer/custom_vo/"..self.VoicePack.."/".."death/death"..math.random(self.DeathSoundCount)..".wav"
     elseif GetConVar('zetaplayer_usealternatedeathsounds'):GetBool() then
         local rnd = math.random(79 + self.DeathSoundCount)
-        if self.UseCustomDeath or rnd > 79 or !self.Permafriend and GetConVar("zetaplayer_customdeathlinesonly"):GetBool() or self.Permafriend and GetConVar("zetaplayer_friendcustomdeathlinesonly"):GetBool() then
+        if self.UseCustomDeath or rnd > 79 or GetConVar("zetaplayer_customdeathlinesonly"):GetBool() then
             snd = "zetaplayer/custom_vo/death/death"..math.random(self.DeathSoundCount)..".wav"
         else
             snd = 'zetaplayer/vo/death/atlternatedeath'..rnd..'.wav'
@@ -148,7 +175,7 @@ function ENT:PlayWitnessSound(victim) -- Feel horror after witnessing someone ge
     DebugText('DeathWitness: Attempt to play witness sound')
     if GetConVar('zetaplayer_allowwitnesssounds'):GetInt() == 0 then return end
     if self.IsSpeaking == true then return end
-    if self.AllowVoice == false then return end
+
             DebugText('DeathWitness: playing witness sounds')        
 
             
@@ -161,7 +188,7 @@ function ENT:PlayWitnessSound(victim) -- Feel horror after witnessing someone ge
                 else
                     local rnd = math.random(1,#self.WitnessSNDS+self.WitnessSoundCount)
                     local snd
-                    if GetConVar("zetaplayer_customwitnesslinesonly"):GetInt() == 1 or GetConVar("zetaplayer_friendcustomwitnesslinesonly"):GetInt() == 1 and self.Permafriend or self.UseCustomWitness then
+                    if GetConVar("zetaplayer_customwitnesslinesonly"):GetInt() == 1  or self.UseCustomWitness then
                         snd = "zetaplayer/custom_vo/witness/witness"..math.random(self.WitnessSoundCount)..".wav"
                     else
                         if rnd > #self.WitnessSNDS then
@@ -181,7 +208,7 @@ function ENT:PlayWitnessSound(victim) -- Feel horror after witnessing someone ge
 function ENT:PlayKillSound()
     if GetConVar('zetaplayer_allowkillvoice'):GetInt() == 0 then return end
     if self.IsSpeaking == true then return end
-    if self.AllowVoice == false then return end
+
 
             timer.Simple(math.random(0.0,0.5),function()
                 if !self:IsValid() then return end
@@ -193,7 +220,7 @@ function ENT:PlayKillSound()
                 else
                     local rnd = math.random(1,431+self.KillSoundCount)
                     local snd
-                    if GetConVar("zetaplayer_customkilllinesonly"):GetInt() == 1 or GetConVar("zetaplayer_friendcustomkilllinesonly"):GetInt() == 1 and self.Permafriend or self.UseCustomKill then
+                    if GetConVar("zetaplayer_customkilllinesonly"):GetInt() == 1 or self.UseCustomKill then
                         snd = "zetaplayer/custom_vo/kill/kill"..math.random(self.KillSoundCount)..".wav"
                     else
                         snd = "zetaplayer/vo/kill/kill"..rnd..".wav"
@@ -211,7 +238,7 @@ end
 function ENT:PlayTauntSound()
     if GetConVar('zetaplayer_allowtauntvoice'):GetInt() == 0 then return end
     if self.IsSpeaking == true then return end
-    if self.AllowVoice == false then return end
+
 
             timer.Simple(math.random(0.0,0.5),function()
                 if !self:IsValid() then return end
@@ -222,7 +249,7 @@ function ENT:PlayTauntSound()
                 else
                     local rnd = math.random(1,247+self.TauntSoundCount)
                     local snd
-                    if GetConVar("zetaplayer_customtauntlinesonly"):GetInt() == 1 or GetConVar("zetaplayer_friendcustomtauntlinesonly"):GetInt() == 1 and self.Permafriend or self.UseCustomTaunt then
+                    if GetConVar("zetaplayer_customtauntlinesonly"):GetInt() == 1 or self.UseCustomTaunt then
                         snd = "zetaplayer/custom_vo/taunt/taunt"..math.random(self.TauntSoundCount)..".wav"
                     else
                         snd = "zetaplayer/vo/taunt/taunt"..rnd..".wav"
@@ -240,7 +267,7 @@ end
 function ENT:PlayAssistSound()
     if GetConVar('zetaplayer_allowtauntvoice'):GetInt() == 0 then return end
     if self.IsSpeaking == true then return end
-    if self.AllowVoice == false then return end
+
 
             timer.Simple(math.random(0.0,0.5),function()
                 if !self:IsValid() then return end
@@ -251,7 +278,7 @@ function ENT:PlayAssistSound()
                 else
                     local rnd = math.random(1,30+self.AssistSoundCount)
                     local snd
-                    if GetConVar("zetaplayer_customassistlinesonly"):GetInt() == 1 or GetConVar("zetaplayer_friendcustomassistlinesonly"):GetInt() == 1 and self.Permafriend or self.UseCustomAssist then
+                    if GetConVar("zetaplayer_customassistlinesonly"):GetInt() == 1 or self.UseCustomAssist then
                         snd = "zetaplayer/custom_vo/assist/assist"..math.random(self.AssistSoundCount)..".wav"
                     else
                         snd = "zetaplayer/vo/assist/assist"..rnd..".wav"
@@ -270,7 +297,7 @@ end
 function ENT:PlayScoldSound()
     if GetConVar('zetaplayer_allowscoldvoice'):GetInt() == 0 then return end
     if self.IsSpeaking == true then return end
-    if self.AllowVoice == false then return end
+
     local duration
             
     if !self:IsValid() then return end
@@ -281,7 +308,7 @@ function ENT:PlayScoldSound()
     else
     local rnd = math.random(1,41+self.AdminScoldSoundCount)
     local snd
-    if GetConVar("zetaplayer_customadminscoldlinesonly"):GetInt() == 1 or GetConVar("zetaplayer_friendcustomadminscoldlinesonly"):GetInt() == 1 and self.Permafriend or self.UseCustomAdminScold then
+    if GetConVar("zetaplayer_customadminscoldlinesonly"):GetInt() == 1 or self.UseCustomAdminScold then
         snd = "zetaplayer/custom_vo/adminscold/adminscold"..math.random(self.AdminScoldSoundCount)..".wav"
     else
         snd = "zetaplayer/vo/adminscold/adminscold"..rnd..".wav"
@@ -301,12 +328,12 @@ function ENT:PlayScoldSound()
 end
 
 function ENT:PlayFallingSound()
-    if !IsValid(self) or !self.AllowVoice or CurTime() <= self.NextFallingSoundT or !GetConVar('zetaplayer_allowfallingvoice'):GetBool() then return end
+    if !IsValid(self)  or CurTime() <= self.NextFallingSoundT or !GetConVar('zetaplayer_allowfallingvoice'):GetBool() then return end
     local rnd = math.random(10 + self.FallingSoundCount)
     local snd = "zetaplayer/vo/fall/fall"..rnd..".wav"
     if self.FALLVOICEPACKEXISTS then
         snd = "zetaplayer/custom_vo/"..self.VoicePack.."/fall/fall"..math.random(self.FallingSoundCount)..".wav"
-    elseif rnd > 10 or self.UseCustomFalling or self.Permafriend and GetConVar("zetaplayer_friendcustomfallinglinesonly"):GetBool() or GetConVar("zetaplayer_customfallinglinesonly"):GetBool() then
+    elseif rnd > 10 or self.UseCustomFalling or GetConVar("zetaplayer_customfallinglinesonly"):GetBool() then
         snd = "zetaplayer/custom_vo/fall/fall"..math.random(self.FallingSoundCount)..".wav"
     end
     local dur = self:ZetaPlayVoiceSound(snd, "zetastopfallingsound"..self:EntIndex())
@@ -318,7 +345,7 @@ end
 function ENT:ReacttoMediaPlayer()
     if GetConVar('zetaplayer_allowidlevoice'):GetInt() == 0 then return end
     if self.IsSpeaking == true then return end
-    if self.AllowVoice == false then return end
+
 
             timer.Simple(math.random(0.0,1.0),function()
                 if !self:IsValid() then return end
@@ -333,7 +360,7 @@ end
 
 
 function ENT:RespondtoAdmin()
-    if self.AllowVoice == false then return end
+
     if self.IsSpeaking then return end
 
         local dur = 0
@@ -342,11 +369,11 @@ function ENT:RespondtoAdmin()
 
             if self.SITRESPONDVOICEPACKEXISTS then
                 snd = "zetaplayer/custom_vo/"..self.VoicePack.."/sitrespond/sitrespond"..math.random(self.SitRespondSoundCount)..".wav"
-                dur = self:ZetaPlayVoiceSound(snd, "zetaidleremove"..self:EntIndex(), true)
+                dur = self:ZetaPlayVoiceSound(snd, "zetasitrespondremove"..self:EntIndex(), true)
             else
                 local rnd = math.random(647+self.SitRespondSoundCount)
                 local snd 
-                if GetConVar("zetaplayer_customsitrespondlinesonly"):GetInt() == 1 or GetConVar("zetaplayer_friendcustomsitrespondlinesonly"):GetInt() == 1 and self.Permafriend or self.UseCustomSitRespond then
+                if GetConVar("zetaplayer_customsitrespondlinesonly"):GetInt() == 1 or self.UseCustomSitRespond then
                     snd = "zetaplayer/custom_vo/sitrespond/sitrespond"..math.random(self.SitRespondSoundCount)..".wav"
                 else
                     snd = 'zetaplayer/vo/idle/idle'..rnd..'.wav'
@@ -365,7 +392,7 @@ end
 
 
 function ENT:PlayQuestionLine()
-    if self.AllowVoice == false then return end
+
     if !self:IsValid() then return end
     local duration
 
@@ -375,7 +402,7 @@ function ENT:PlayQuestionLine()
     else
         local rnd = math.random(1,(647+self.IdleSoundCount)+self.QuestionSoundCount)
         local snd
-        if GetConVar("zetaplayer_customquestionlinesonly"):GetInt() == 1 or GetConVar("zetaplayer_friendcustomquestionlinesonly"):GetInt() == 1 and self.Permafriend or self.UseCustomQuestion then
+        if GetConVar("zetaplayer_customquestionlinesonly"):GetInt() == 1 or self.UseCustomQuestion then
             snd = "zetaplayer/custom_vo/conquestion/conquestion"..math.random(self.QuestionSoundCount)..".wav"
         else
             snd = 'zetaplayer/vo/idle/idle'..rnd..'.wav'
@@ -396,7 +423,7 @@ function ENT:PlayQuestionLine()
 end
 
 function ENT:PlayRespondLine()
-    if self.AllowVoice == false then return end
+
     if !self:IsValid() then return end
     local duration
 
@@ -407,7 +434,7 @@ function ENT:PlayRespondLine()
     else
         local rnd = math.random(1,(647+self.IdleSoundCount)+self.ConRespondSoundCount)
         local snd
-        if GetConVar("zetaplayer_customrespondlinesonly"):GetInt() == 1 or GetConVar("zetaplayer_friendcustomrespondlinesonly"):GetInt() == 1 and self.Permafriend or self.UseCustomConRespond then
+        if GetConVar("zetaplayer_customrespondlinesonly"):GetInt() == 1 or self.UseCustomConRespond then
             snd = "zetaplayer/custom_vo/conrespond/conrespond"..math.random(self.ConRespondSoundCount)..".wav"
         else
             snd = 'zetaplayer/vo/idle/idle'..rnd..'.wav'
@@ -437,7 +464,7 @@ function ENT:PlayIdleLine()
         if GetConVar('zetaplayer_alternateidlesounds'):GetInt() == 1 then
             local rnd = math.random(647+self.IdleSoundCount)
             local snd 
-            if GetConVar("zetaplayer_customidlelinesonly"):GetInt() == 1 or GetConVar("zetaplayer_friendcustomidlelinesonly"):GetInt() == 1 and self.Permafriend or self.UseCustomIdle then
+            if GetConVar("zetaplayer_customidlelinesonly"):GetInt() == 1 or self.UseCustomIdle then
                 snd = "zetaplayer/custom_vo/idle/idle"..math.random(self.IdleSoundCount)..".wav"
             else
                 snd = 'zetaplayer/vo/idle/idle'..rnd..'.wav'
@@ -456,7 +483,7 @@ end
 
 
 function ENT:PlayMediaWatchLine()
-    if self.AllowVoice == false then return end
+
     if !self:IsValid() then return end
     local duration
 
@@ -466,7 +493,7 @@ function ENT:PlayMediaWatchLine()
     else
         local rnd = math.random(1,(647+self.IdleSoundCount)+self.MediaWatchSoundCount)
         local snd
-        if GetConVar("zetaplayer_custommediawatchlinesonly"):GetInt() == 1 or GetConVar("zetaplayer_friendcustomsitrespondlinesonly"):GetInt() == 1 and self.Permafriend or self.UseCustomMediaWatch then
+        if GetConVar("zetaplayer_custommediawatchlinesonly"):GetInt() == 1 or self.UseCustomMediaWatch then
             snd = "zetaplayer/custom_vo/mediawatch/mediawatch"..math.random(self.MediaWatchSoundCount)..".wav"
         else
             snd = 'zetaplayer/vo/idle/idle'..rnd..'.wav'
@@ -493,7 +520,7 @@ function ENT:PlayPanicSound()
     local snd = self.PanicSNDS[rnd]
     if self.PANICVOICEPACKEXISTS then
         snd = "zetaplayer/custom_vo/"..self.VoicePack.."/panic/panic"..math.random(self.PanicSoundCount)..".wav"
-    elseif self.UseCustomPanic or rnd > #self.PanicSNDS or self.Permafriend and GetConVar("zetaplayer_friendcustompaniclinesonly"):GetBool() or GetConVar("zetaplayer_custompaniclinesonly"):GetBool() then
+    elseif self.UseCustomPanic or rnd > #self.PanicSNDS or GetConVar("zetaplayer_custompaniclinesonly"):GetBool() then
         snd = "zetaplayer/custom_vo/panic/panic"..math.random(self.PanicSoundCount)..".wav"
     end
     self:ZetaPlayVoiceSound(snd, 'zetastoppanicsound'..self:EntIndex())

@@ -15,18 +15,28 @@ ENT.ZetaFlag = true
 
 function ENT:Initialize()
 
-    self:SetModel("models/flag/briefcase.mdl")
-    self:SetSkin(2)
+
+
+
     
     
     
     if SERVER then
+        local mdl = "models/flag/briefcase.mdl"
+        if self.custommodel and util.IsValidModel(self.custommodel) then 
+            mdl = self.custommodel 
+        end
+        self:SetModel(mdl)
+        self:SetSkin(2)
 
         self.CaptureZone = ents.Create("base_anim")
         self.CaptureZone:SetModel("models/props_combine/combine_mine01.mdl")
         self.CaptureZone:SetPos(self:GetPos())
         self.CaptureZone:Spawn()
+        self.CaptureZone.Flagowner = self
+        self.CaptureZone._ZetaCaptureZone = true
         self:DeleteOnRemove(self.CaptureZone)
+        
 
         timer.Simple(0,function()
             self:SetPos(self:GetPos()+Vector(0,0,10))
@@ -44,6 +54,10 @@ function ENT:Initialize()
         self:SetAngles(self.Placeholderangle)
 
         
+        if !self.CanBePickedUp then
+            self:SetNW2Bool("zetaflag_capturezone",true)
+        end
+
         
 
 
@@ -81,9 +95,17 @@ function ENT:GetEntTeam(ent)
     return ent.IsZetaPlayer and ent.zetaTeam or GetConVar("zetaplayer_playerteam"):GetString() != "" and GetConVar("zetaplayer_playerteam"):GetString() or nil
 end
 
+
+
 function ENT:SetPickedUp(bool)
     self.IsPickedUp = bool
     self:SetNW2Bool("zetaflag_pickedup",bool)
+end
+
+function ENT:OnRemove()
+    if IsValid(self.Holder) then
+        self.Holder.HasFlag = false
+    end
 end
 
 function ENT:Draw3dText(text,pos,ang,scale)
@@ -142,7 +164,7 @@ function ENT:Think()
     end)
 
     local capturezonearea = self:FindInSphereCaptureZone(100,function(ent)
-        if ent.ZetaFlag and ent != self and ent.IsPickedUp then return true end
+        if ent.ZetaFlag and ent != self and ent.IsPickedUp and ent.teamowner != self.teamowner and self:GetEntTeam(ent.Holder) == self.teamowner then return true end
     end)
 
     if #capturezonearea > 0 then 
@@ -153,7 +175,7 @@ function ENT:Think()
 
     if #surrounding > 0 and !self.IsPickedUp and self.CanBePickedUp then
         for k,v in ipairs(surrounding) do
-
+            if v.HasFlag then continue end
             self.Holder = v
             v.HasFlag = true
             self:SetPickedUp(true)
@@ -164,7 +186,12 @@ function ENT:Think()
     end
 
     if IsValid(self.Holder) and self.Holder:Alive() then
-        local attach = self.Holder:GetBackPos()
+        local attach
+        if self.Holder.IsZetaPlayer then
+            attach = self.Holder:GetBackPos()
+        else
+            attach = {Pos = self.Holder:GetCenteroid()+self.Holder:GetForward()*-10,Ang = self.Holder:GetAngles()+Angle(90,0,90)}
+        end
         local pos = attach.Pos
         local ang = attach.Ang
         if !pos then
@@ -184,7 +211,9 @@ function ENT:Think()
         self:SetPos(pos-self.Holder:GetForward()*10)
         self:SetAngles(ang+Angle(0,0,90))
     elseif self.IsPickedUp or IsValid(self.Holder) and !self.Holder:Alive() then
+        self.Holder.HasFlag = false
         self.Holder = NULL
+        
 
         if self.Holder:IsPlayer() then
             self.Holder.HasFlag = true
@@ -194,8 +223,8 @@ function ENT:Think()
         self:OnDrop()
 
         if !timer.Exists("zetaflagreturntime"..self:EntIndex()) then
-            self.Curtimerepeat = 15
-            timer.Create("zetaflagreturntime"..self:EntIndex(),1,15,function()
+            self.Curtimerepeat = GetConVar("zetaplayer_ctfreturntime"):GetInt()
+            timer.Create("zetaflagreturntime"..self:EntIndex(),1,GetConVar("zetaplayer_ctfreturntime"):GetInt(),function()
                 if !IsValid(self) then timer.Remove("zetaflagreturntime"..self:EntIndex()) return end
                 self.Curtimerepeat = self.Curtimerepeat - 1
                 self:SetNW2Int("zetaflag_returntime",self.Curtimerepeat)
@@ -232,8 +261,23 @@ function ENT:Think()
 end
 local downtracetbl = {}
 
+function ENT:ReturnToZone()
+    self.IsAtHome = true
+    local mins = self:OBBMins()
+    self:SetPos(self.CaptureZone:GetPos()+Vector(0,0,15))
+    self:SetNW2Int("zetaflag_returntime",-1)
+    if IsValid(self.Holder) then
+        self.Holder.HasFlag = false
+    end
+    self.Holder = NULL
+    self:SetPickedUp(false)
+end
+
 function ENT:OnCaptured()
-    self.Trail:Remove()
+    if IsValid(self.Trail) then
+        self.Trail:Remove()
+    end
+
     if self.teamowner then
         self:SendChatMessage(self:GetHolderColor(),self:GetHolderName(),color_glacier," captured ",self.TeamColor,self.teamowner,color_glacier,"'s ",self.TeamColor,self.customname,color_glacier," flag!")
     else
@@ -242,6 +286,10 @@ function ENT:OnCaptured()
 
     if self.Holder.IsZetaPlayer then
         self.Holder:PlayKillSound()
+    end
+
+    if GetGlobalBool("_ZetaCTF_Gameactive", false ) then
+        hook.Run("ZetaCTFOnCapture",self.teamowner,self:GetEntTeam(self.Holder))
     end
 
     self.IsAtHome = true
@@ -313,7 +361,7 @@ function ENT:OnPickup()
 end
 
 function ENT:GetHolderColor()
-    return self.Holder.TeamColor or color_white
+    return self.Holder.IsZetaPlayer and self.Holder.TeamColor or ZetaGetTeamColor(GetConVar("zetaplayer_playerteam"):GetString()) and ZetaGetTeamColor(GetConVar("zetaplayer_playerteam"):GetString()):ToColor() or color_white
 end
 
 function ENT:GetHolderName()
@@ -340,7 +388,9 @@ function ENT:Draw()
 
         pos = (self:GetPos()+maxs)+Vector(0,0,30)
 
-        self:Draw3dText("["..self:GetNW2String("zetaflag_customname","A0").."]",pos,ang,0.5)
+        local addcapture = (self:GetNW2Bool("zetaflag_capturezone",false) and ": CAPTURE ZONE" or "")
+
+        self:Draw3dText("["..self:GetNW2String("zetaflag_customname","A0").."]"..addcapture,pos,ang,0.5)
 
         if self:GetNW2Int("zetaflag_returntime",-1) != -1 then
             pos = (self:GetPos()+maxs)+Vector(0,0,20)
@@ -349,6 +399,8 @@ function ENT:Draw()
         end
     end
 
-    self:DrawModel()
+    if !self:GetNW2Bool("zetaflag_capturezone",false) then
+        self:DrawModel()
+    end
 
 end

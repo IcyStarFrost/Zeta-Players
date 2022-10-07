@@ -7,6 +7,11 @@ zetamath.random = math.random
 local math = math
 local util = util
 
+local propaddonwhitelist = {
+    ["prop_physics"] = true,
+    ["prop_physics_multiplayer"] = true,
+    ["prop_vehicle_jeep"] = true
+}
 
 function ENT:ComputeBuildChance()
 
@@ -24,9 +29,45 @@ function ENT:ComputeBuildChance()
         function() if !GetConVar("zetaplayer_allowsprays"):GetBool() and zetamath.random(2) != 1 then return false end self:UseSprayer() return true end,
         function() if zetamath.random(3) != 1  then return false end self.BurstCount = 0 self.MaxBurst = zetamath.random(6, 24) self:SetState("building") return true end,
         function() if self:IsInNoclip() then return false end self:SetState("lookingbutton") return true end,
-        function() self:SpawnProp() return true end,
-    }
+        function() if !GetConVar('zetaplayer_allowprops'):GetBool() then return false end self:SpawnProp() return true end,
+        function() 
+            if !GetConVar("zetaplayer_building_allowduplications"):GetBool() or CurTime() < self.DupeCooldown or !self:CanUseWeapon("TOOLGUN") or !self:CanUseWeapon("PHYSGUN") then 
+                
+                
+                return false 
+            end 
+            local buildmode = GetConVar("zetaplayer_building_dupebuildmode"):GetInt()
 
+            if buildmode == 0 then
+                if zetamath.random(1,2) == 1 then 
+                    self:PlaceDupe() 
+                else 
+                    self:SetState("buildingdupe") 
+                end 
+
+            elseif buildmode == 1 then
+                self:SetState("buildingdupe")
+            elseif buildmode == 2 then
+                self:PlaceDupe() 
+            end
+
+
+                return true 
+            end,
+        function()
+            if !GetConVar("zetaplayer_building_allowaddingontoprops"):GetBool() then return false end
+            if !self:CanUseWeapon("TOOLGUN") or !self:CanUseWeapon("PHYSGUN") then return false end
+            local props = self:FindInSight(1000,function(ent) if propaddonwhitelist[ent:GetClass()] then return true end end)
+            local selectedprop = props[math.random(#props)]
+        
+            if !IsValid(selectedprop) then return false end
+            
+            self.selectedaddonprop = selectedprop
+            self:SetState("buildingonent")
+            return true
+        end
+    }
+    
     DebugText('Decision: Chose Build ')
 
     for i=1, #buildoptions do

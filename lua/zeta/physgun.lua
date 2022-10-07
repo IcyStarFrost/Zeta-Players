@@ -4,6 +4,24 @@
 -----------------------------------------------
 if CLIENT then return end
 AddCSLuaFile()
+
+
+local math = math
+local util = util
+
+local oldisvalid = IsValid
+
+local function IsValid( ent )
+    if oldisvalid( ent ) and ent.IsZetaPlayer then
+        
+        return !ent.IsDead 
+    else
+        return oldisvalid( ent )
+    end
+end
+
+
+
 function ENT:DrawBeamOn(ent)
     self.PhysgunBeamEnt = ent
     self:SetNW2Bool( 'zeta_drawphysgunbeam', true )
@@ -15,67 +33,81 @@ function ENT:EndDrawBeam()
 end
 
 
+local traceData = {
+    mask = MASK_NPCSOLID_BRUSHONLY
+}
+
+local function ApproachAngle(a1,a2)
+    local p = math.ApproachAngle( a1[1], a2[1], 5 )
+    local y = math.ApproachAngle( a1[2], a2[2], 5 )
+    local r = math.ApproachAngle( a1[3], a2[3], 5 )
+    return Angle(p,y,r)
+end
+
 function ENT:GrabEnt(ent)
-    if !self:IsValid() or !IsValid(ent) then return end
-    if self.Grabbing == true then return end
-    if IsValid(self.GrabbedENT) then return end
+    if !IsValid(self) or !IsValid(ent) or IsValid(self.GrabbedENT) or self.Grabbing then return end
+
+    
     self.Grabbing = true
     self.PhysgunnedENT = ent
     self:DrawBeamOn(ent)
     self.PhysgunBeamDistance = ent:GetPos():Distance(self:GetPos())
-    timer.Create('zetagrab'..self:EntIndex(),0,0,function()
-    if !self:IsValid() then return end
-    if !ent:IsValid() then self:EndDrawBeam() self.PhysgunnedENT = nil self.Grabbing = false timer.Remove('zetagrab'..self:EntIndex()) return end
-    if IsValid(ent) and ent:IsPlayer() and !ent:Alive() then self.PhysgunnedENT = nil self.Grabbing = false timer.Remove('zetagrab'..self:EntIndex()) self:EndDrawBeam() return end
-    if !self.WeaponENT:IsValid() then return end
-    if self.Weapon != 'PHYSGUN' then self.PhysgunnedENT = nil self.Grabbing = false timer.Remove('zetagrab'..self:EntIndex()) return end
-    if self.Grabbing == false then self.PhysgunnedENT = nil timer.Remove('zetagrab'..self:EntIndex()) return end
-        -- This code below isn't actually mine believe it or not. It is from the Multi Physgun Addon.
-        -- I had NO idea on where to start to do the math which would of maybe taken me many days
-        -- Credit to the man he did it
+
+
+    -- This code below isn't actually mine believe it or not. It is from the Multi Physgun Addon.
+    -- I had NO idea on where to start to do the math which would of maybe taken me many days
+    -- Credit to the man he did it
+
+    self:CreateThinkFunction("zetaphysgunhold", 0, 0, function()
+    if !IsValid(ent) then self:EndDrawBeam() self.Grabbing = false return "failed" end
+
+    if IsValid(ent) and ent:IsPlayer() and !ent:Alive() then self:EndDrawBeam() self.PhysgunnedENT = nil self.Grabbing = false return "failed" end
+
+    if self.Weapon != 'PHYSGUN' then self:EndDrawBeam() self.PhysgunnedENT = nil self.Grabbing = false return "failed" end
+
+    if !self.Grabbing then self:EndDrawBeam() self.PhysgunnedENT = nil return "failed" end
+
 
 
 
         if ent:IsPlayer() or ent:IsNPC() or ent:IsNextBot() then
-           
-            local dist = (self.WeaponENT:GetPos()+self.WeaponENT:GetForward()*self.PhysgunBeamDistance - ent:GetPos())
 
-            local traceData = {
-                start = ent:GetPos(),
-                endpos = self.WeaponENT:GetPos()+self.WeaponENT:GetForward()*self.PhysgunBeamDistance,
-                filter = ent,
-                mask = MASK_NPCSOLID_BRUSHONLY
-            }
+            traceData.start = ent:GetPos()
+            traceData.endpos = self.WeaponENT:GetPos()+self.WeaponENT:GetForward()*self.PhysgunBeamDistance
+            traceData.filter = function(ent2) if ent2 == ent then return true end end
+
             local traceResult = util.TraceEntity(traceData,ent)
             ent:SetPos(traceResult.HitPos )
         else
-            if !self:IsValid() or !ent:IsValid() then self.PhysgunnedENT = nil self.Grabbing = false timer.Remove('zetagrab'..self:EntIndex()) return end
-        local phys = ent:GetPhysicsObject()
 
-        if phys:IsValid() then
-            if !self:IsValid() or !ent:IsValid() then self.PhysgunnedENT = nil self.Grabbing = false timer.Remove('zetagrab'..self:EntIndex()) return end
-        phys:EnableMotion(true)
-        if !self:IsValid() then timer.Remove('zetagrab'..self:EntIndex()) return end
-        local dist = (self.WeaponENT:GetPos()+self.WeaponENT:GetForward()*self.PhysgunBeamDistance) - ent:GetPos()
-        local dir = dist:GetNormalized()
-        local speed = math.min(4000/2, dist:Dot(dir) *5)*dir  +  ent:GetVelocity()*0.5
-        speed = math.max(math.min(4000,speed:Dot(dir)),-1000)
-        
-        phys:SetVelocity((speed)*dir)
+            local phys = ent:GetPhysicsObject()
 
-        else
-            if !self:IsValid() or !ent:IsValid() then self.PhysgunnedENT = nil self.Grabbing = false timer.Remove('zetagrab'..self:EntIndex()) return end
-            if !self.WeaponENT:IsValid() then timer.Remove('zetagrab'..self:EntIndex()) return end
-        local traceData = {
-            start = ent:GetPos(),
-            endpos = self.WeaponENT:GetPos()+self.WeaponENT:GetForward()*self.PhysgunBeamDistance,
-            filter = ent,
-            mask = MASK_NPCSOLID_BRUSHONLY
-        }
-        local traceResult = util.TraceEntity(traceData,ent)
-        ent:SetPos(traceResult.HitPos )
-    end
-end
+            if phys:IsValid() then
+
+                phys:EnableMotion(true)
+                local dist = ( !self.PhysgunHoldPos and ( self.WeaponENT:GetPos() + self.WeaponENT:GetForward() * self.PhysgunBeamDistance) or self.PhysgunHoldPos ) - ent:GetPos()
+                local dir = dist:GetNormalized()
+                local speed = math.min(self.PhysgunWheelSpeed/2, dist:Dot(dir) *5)*dir  +  ent:GetVelocity()*0.5
+                speed = math.max(math.min(self.PhysgunWheelSpeed,speed:Dot(dir)),-1000)
+                    
+                phys:SetVelocity((speed)*dir)
+
+                if self.PhysgunHoldAng then
+                    local ang = ApproachAngle(ent:GetAngles(),self.PhysgunHoldAng)
+
+                    phys:SetAngles(ang)
+                end
+
+            else
+
+                traceData.start = ent:GetPos()
+                traceData.endpos = self.WeaponENT:GetPos()+self.WeaponENT:GetForward()*self.PhysgunBeamDistance
+                traceData.filter = function(ent2) if ent2 == ent then return true end end
+
+                local traceResult = util.TraceEntity(traceData,ent)
+                ent:SetPos(traceResult.HitPos )
+            end
+        end
     end)
 
 
@@ -139,7 +171,7 @@ function ENT:ThrowHeldObject()
         DebugText('PHYSGUN: Preparing to throw '..tostring(self.PhysgunnedENT))
         timer.Simple(math.random(0.5,1.0),function()
             if !self.PhysgunnedENT then return end
-            if !self:IsValid() or !self.PhysgunnedENT and !self.PhysgunnedENT:IsValid() then return end
+            if !self:IsValid() or !self.PhysgunnedENT:IsValid() then return end
             self:EndDrawBeam()
             self.Grabbing = false
             DebugText('PHYSGUN: Threw '..tostring(self.PhysgunnedENT))
@@ -222,7 +254,7 @@ function ENT:PickupProp(ent)
     timer.Create('zetagrab'..self:EntIndex(),0,0,function()
     if !self:IsValid() or !ent:IsValid() then self.GrabbedENT = nil self.Grabbing = false timer.Remove('zetagrab'..self:EntIndex()) return end
     if !self.WeaponENT:IsValid() then return end
-    if self.Grabbing == false then self.GrabbedENT = nil timer.Remove('zetagrab'..self:EntIndex()) return end
+    if !self.Grabbing then self.GrabbedENT = nil timer.Remove('zetagrab'..self:EntIndex()) return end
         if self.Weapon == "PHYSGUN" then self.GrabbedENT = nil self.Grabbing = false timer.Remove('zetagrab'..self:EntIndex()) return end
         if !self:IsValid() or !ent:IsValid() then self.GrabbedENT = nil self.Grabbing = false timer.Remove('zetagrab'..self:EntIndex()) return end
         if self:GetRangeSquaredTo(ent) >= (110*110) then self.GrabbedENT = nil self.Grabbing = false timer.Remove('zetagrab'..self:EntIndex()) return end

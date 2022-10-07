@@ -13,6 +13,22 @@ TOOL.Category = "Zeta Players"
 TOOL.Name = "#tool.zetaplayerdebugtool"
 
 
+local function printpersonality(ent)
+
+    print("\n\n---- PERSONALITY SETTINGS ----\n\n")
+        print("Build chance = ",ent.BuildChance)
+        print("Combat chance = ",ent.CombatChance)
+        print("Tool chance = ",ent.ToolChance)
+        print("Physgun chance = ",ent.PhysgunChance)
+        print("Disrespect chance = ",ent.DisrespectChance)
+        print("Media Watch chance = ",ent.WatchMediaPlayerChance)
+        print("Friendly chance = ",ent.FriendlyChance)
+        print("Voice chance = ",ent.VoiceChance)
+        print("Vehicle chance = ",ent.VehicleChance)
+        print("Text chance = ",ent.TextChance)
+    print("\n\n------------------------\n\n")
+
+end
 
 function TOOL:LeftClick( tr )
     local ent = tr.Entity
@@ -41,6 +57,8 @@ function TOOL:LeftClick( tr )
 
     print("Zeta Weapon = ",ent.Weapon,"\n")
 
+    print("Zeta Accuracy Value = ",ent.Accuracy,"\n")
+
     print("Zeta Enemy = ",ent.Enemy,"\n")
 
     print("Friend List -- --\n")
@@ -62,6 +80,8 @@ function TOOL:LeftClick( tr )
 
     print("Is Speaking = ",ent.IsSpeaking,"\n")
 
+    print( "Is Climbing a Ladder = ", ent.IsClimbingLadder or false, "\n" )
+
     print("Can Speak = ",ent.AllowVoice,"\n")
     
     print("DATA METHOD\n",ent.UsingSERVERCACHE and "This Zeta is using the SERVER Cache for its data\n" or "This Zeta is using its own data")
@@ -71,6 +91,8 @@ function TOOL:LeftClick( tr )
     PrintTable(ent.LastStateTraces)
     
     print("------------------")
+
+    printpersonality(ent)
 
     return true
 end

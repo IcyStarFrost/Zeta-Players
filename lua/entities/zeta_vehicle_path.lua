@@ -125,6 +125,66 @@ function ENT:Think()
 end
 
 
+function ENT:GetComputepath()
+	return function( area, fromArea, ladder, elevator, length )
+		if ( !IsValid( fromArea ) ) then
+	
+			// first area in path, no cost
+			return 0
+		
+		else
+
+			if area:IsUnderwater() then
+
+				return -1
+			end
+		
+			if ( !self.loco:IsAreaTraversable( area ) ) then
+				// our locomotor says we can't move here
+				return -1
+			end
+	
+			// compute distance traveled along path so far
+			local dist = 0
+	
+			if ( IsValid( ladder ) ) then
+				dist = ladder:GetLength()
+			elseif ( length > 0 ) then
+				// optimization to avoid recomputing length
+				dist = length
+			else
+				dist = ( area:GetCenter() - fromArea:GetCenter() ):GetLength()
+			end
+	
+			local cost = dist + fromArea:GetCostSoFar()
+	
+			// check height change
+			local deltaZ = fromArea:ComputeAdjacentConnectionHeightChange( area )
+			if ( deltaZ >= self.loco:GetStepHeight() ) then
+				if ( deltaZ >= self.loco:GetMaxJumpHeight() ) then
+					// too high to reach
+					return -1
+				end
+	
+				// jumping is slower than flat ground
+				local jumpPenalty = 5
+				cost = cost + jumpPenalty * dist
+			elseif ( deltaZ < -self.loco:GetDeathDropHeight() ) then
+				// too far to drop
+				return -1
+			end
+	
+			return cost
+		end
+
+
+
+	end
+
+end
+
+
+
 function ENT:CancelMove()
 	if self.IsMoving == true then
 	  self.AbortMove = true
@@ -136,7 +196,7 @@ function ENT:GotoPos(pos)
     local path = Path('Follow')
     path:SetMinLookAheadDistance(1)
 	path:SetGoalTolerance(45)
-	path:Compute(self, pos)
+	path:Compute(self, pos, self:GetComputepath())
 	if !path:IsValid() then return "failed" end
 
 	self.IsMoving = true

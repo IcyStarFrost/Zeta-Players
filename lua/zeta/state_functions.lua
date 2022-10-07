@@ -4,13 +4,28 @@
 -----------------------------------------------
 AddCSLuaFile()
     
-local IsValid = IsValid
+local oldisvalid = IsValid
+
+local function IsValid( ent )
+    if oldisvalid( ent ) and ent.IsZetaPlayer then
+        
+        return !ent.IsDead 
+    else
+        return oldisvalid( ent )
+    end
+end
+
+
 local zetamath = {}
 zetamath.random = math.random
+zetamath.Rand = math.Rand
+local util = util
+local math = math
 
 ENT.AllowedStates = { -- List of states that are allowed to have universal actions
     ['idle'] = true 
 }
+
 ENT.LookStates = {
     ['idle'] = true,
     ["watching"] = true,
@@ -28,11 +43,11 @@ function ENT:ChooseNextUniversalAction() -- Universal actions can happen anytime
                 self:ThrowHeldprop()
             end
         end
-    elseif 100 * zetamath.random() < self.PhysgunChance then
+    elseif 100 * zetamath.random() < self.PhysgunChance and !self.BuildingDupe then
         self:DecideOnHeldEnt(true)
     end
 
-    if GetConVar("zetaplayer_allowkillbind"):GetBool() and zetamath.random(100) == 1 and !self.PlayingPoker then
+    if GetConVar("zetaplayer_allowkillbind"):GetBool() and zetamath.random(100) == 1 and !self.PlayingPoker and self:GetState() != "buildingdupe" then
         self:Killbind()
     end
 
@@ -40,16 +55,48 @@ function ENT:ChooseNextUniversalAction() -- Universal actions can happen anytime
         self:DispatchRandomVote()
     end
 
-    if self:IsChasingSomeone() then
-        local decide = zetamath.random(4)
-        if decide == 1 and self.Weapon != "GRENADE" and GetConVar("zetaplayer_allowgrenades"):GetBool() and self:CanSee(self:GetEnemy()) then
-            self:ThrowGrenade(self:GetEnemy())
+    if (self:GetState() == "panic" or self:IsChasingSomeone() and self:CanSee(self:GetEnemy())) and GetConVar("zetaplayer_allowgrenades"):GetBool() and zetamath.random(100) <= GetConVar("zetaplayer_grenade_throwchance"):GetInt() then
+        local newWep = nil
+        local decide = zetamath.random(5)
+        if (decide == 1 or decide == 2) and self.Weapon != "FLASHGRENADE" and GetConVar("zetaplayer_allowflashgrenade"):GetBool() then
+            newWep = "FLASHGRENADE"
+        elseif decide == 3 and self.Weapon != "SMOKEGRENADE" and GetConVar("zetaplayer_allowsmokegrenade"):GetBool() then
+            newWep = "SMOKEGRENADE"
+        elseif self.Weapon != "GRENADE" then
+            newWep = "GRENADE"
         end
-    else
+        if newWep != nil then
+            if GetConVar("zetaplayer_grenade_switchtoweapon"):GetBool() then
+                local lastWep, lastState = self.Weapon, self:GetState()
+                self:CancelMove()
+                self:SetState('chaseranged')
+                self:ChangeWeapon(newWep)
+                self.AttackCooldown = CurTime() + 0.5
+                self.CSSNades_ChangeWeapon = true
+                timer.Simple(1.5, function()
+                    if !IsValid(self) then return end
+                    self:CancelMove()
+                    self:SetState(lastState)
+                    self:ChangeWeapon(lastWep)
+                    self.AttackCooldown = CurTime() + 0.33
+                    timer.Simple(1.0, function() if IsValid(self) then self.CSSNades_ChangeWeapon = nil end end)
+                end)
+            else
+                if newWep == "FLASHGRENADE" then
+                    self:ThrowFlashbang(self:GetEnemy(), true)
+                elseif newWep == "SMOKEGRENADE" then
+                    self:ThrowSmokeGrenade(self:GetEnemy(), true)
+                elseif newWep == "GRENADE" then
+                    self:ThrowGrenade(self:GetEnemy())
+                end
+            end
+        end
+    end
+    if !self:IsChasingSomeone() then
         if self.HasRangedWeapon and self.CurrentAmmo < self.MaxAmmo and zetamath.random(2) == 1 then
             self:Reload()
         end
-
+    
         if self.Weapon == "C4" and zetamath.random(4) == 1 then
             self:FireWeapon(self)
         end
@@ -106,11 +153,11 @@ function ENT:ChooseNextUniversalAction() -- Universal actions can happen anytime
             self:SetState("actcommands")
         end end,
         function() self:UseGestures() end,
-        function() if self.IsAdmin and zetamath.random(2) == 1 and #self:GetAllowedCommands() > 0 then 
+        function() if self.IsAdmin and zetamath.random(2) == 1 and #self:GetAllowedCommands() > 0 and !self.PlayingPoker then 
             self:CancelMove()
             self:SetState("usingcommand")
         end end,
-        function() if self.AllowedStates[curState] and GetConVar("zetaplayer_allowconversations"):GetBool() and 100 * math.random() < GetConVar("zetaplayer_startconversationchance"):GetInt() then
+        function() if self.AllowedStates[curState] and GetConVar("zetaplayer_allowconversations"):GetBool() and 100 * math.random() < GetConVar("zetaplayer_startconversationchance"):GetInt() and !self.PlayingPoker then
             self:CancelMove()
             self:SetState("findingconverse")
         end end
@@ -119,8 +166,110 @@ function ENT:ChooseNextUniversalAction() -- Universal actions can happen anytime
 end
 
 
+function ENT:ChooseNextIdleAction()  
+    local moveToPos = nil
 
-function ENT:ChooseNextIdleAction() -- New Decision System has been set in place V V V V V    
+    if self.zetaTeam then 
+        local flags = self:GetCTFFlags()
+        if #flags > 0 then
+            if !IsValid(self.Flagent) or zetamath.random(3) == 1 then
+                self.Flagent = flags[zetamath.random(#flags)]
+            end
+            if !self.HasFlag then
+                moveToPos = self.Flagent:GetPos() + Vector(zetamath.random(-50, 50), zetamath.random(-50, 50), 0)
+            else
+                local zones = self:GetCaptureZones()
+                local zone = zones[zetamath.random(#zones)]
+                if !zone then return end
+                moveToPos = zone:GetPos() + Vector(zetamath.random(-50, 50), zetamath.random(-50, 50), 0)
+            end
+        else
+            local kothents = ents.FindByClass("zeta_koth")
+            if #kothents > 0 then
+                if !IsValid(self.KOTHEnt) or zetamath.random(10) == 1 then
+                    self.KOTHEnt = kothents[zetamath.random(#kothents)]
+                end
+                local nav = navmesh.GetNearestNavArea(self.KOTHEnt:GetPos())
+                moveToPos = (IsValid(nav) and nav:GetRandomPoint() or (self.KOTHEnt:GetPos() + VectorRand(-500, 500)))
+            end
+        end
+    end
+
+    if !moveToPos and GetGlobalBool("_ZetaTDM_Gameactive") then
+        if zetamath.random(2) == 1 then
+            moveToPos = self:FindRandomPosition(GetConVar("zetaplayer_wanderdistance"):GetInt()) 
+        else
+            for _, v in RandomPairs(ents.FindByClass("npc_zetaplayer")) do 
+                if v != self and IsValid(v) and v.zetaTeam != self.zetaTeam then
+                    moveToPos = v:GetPos() + VectorRand(-100, 100)
+                    break
+                end
+            end
+        end
+    end
+
+    if moveToPos then
+        local spawnSmth = zetamath.random(4)
+        if spawnSmth == 1 and self:Health() < self:GetMaxHealth() then
+            self:SpawnMedKit()
+        elseif spawnSmth == 2 and self.CurrentArmor < self.MaxArmor then
+            self:SpawnArmorBattery()
+        end
+    elseif zetamath.random(6) == 1 then
+        local justWander = false
+        local friendInVehicle = false
+
+        local rndFriend = ((GetConVar("zetaplayer_stickwithplayer"):GetBool() and self:HasPlayerFriend()) and self:GetPlayerFriend() or self:GetRandomFriend())
+        if IsValid(rndFriend) and GetConVar("zetaplayer_friendsticknear"):GetBool() then
+            friendInVehicle = rndFriend:InVehicle()
+            moveToPos = self:FindRandomPositionNear(rndFriend:GetPos(), GetConVar("zetaplayer_friendstickneardistance"):GetInt())
+        else
+            local members = ((self.zetaTeam and GetConVar("zetaplayer_useteamsystem"):GetBool() and GetConVar("zetaplayer_teamsstickneareachother"):GetBool()) and self:GetTeamMembers(self.zetaTeam) or ((self.IsAdmin and GetConVar("zetaplayer_adminshouldsticktogether"):GetBool()) and self:GetAdmins() or {}))
+            if #members > 0 then
+                local rndMember = members[zetamath.random(#members)]
+                if IsValid(rndMember) then
+                    local nearDist = GetConVar("zetaplayer_teamsstickneardistance"):GetInt()
+                    moveToPos = (rndMember:GetPos() + Vector(zetamath.random(-nearDist, nearDist), zetamath.random(-nearDist, nearDist), 0))
+                end
+            end
+        end
+        if !moveToPos then
+            justWander = true
+            moveToPos = self:FindRandomPosition(GetConVar("zetaplayer_wanderdistance"):GetInt()) 
+        end
+
+        if zetamath.random(6) == 1 and (!self.IsAdmin and GetConVar("zetaplayer_allownoclip"):GetBool() or GetConVar("zetaplayer_allowadminnoclip"):GetBool()) then
+            self:ToggleNoclip(!self:IsInNoclip())
+        end
+        if self:IsInNoclip() then
+            if justWander and zetamath.random(4) == 1 then
+                local rndNav = _ZETANAVMESH[zetamath.random(#_ZETANAVMESH)]
+                if IsValid(rndNav) then moveToPos = rndNav:GetRandomPoint() end
+            end
+            self:NoClipTo(self:GetNoclipSpot(moveToPos))
+            return
+        end
+        if friendInVehicle and GetConVar("zetaplayer_allowvehicles"):GetBool() then
+            self:FindVehicle()
+            return
+        end
+    end
+
+    if moveToPos then
+        local speed, anim = self:GetMovementData(moveToPos)
+        self:StartActivity(anim)
+        self:SetLastActivity(anim) 
+        self.loco:SetDesiredSpeed(speed)
+        self:MoveToPos(moveToPos)
+        self:StartActivity(self:GetActivityWeapon("idle")) 
+        return
+    end
+
+    self:ComputeChances()
+end
+
+
+--[[ function ENT:ChooseNextIdleAction()
     local kothents = ents.FindByClass("zeta_koth")
     local flags = self:GetCTFFlags()
     local zones = self:GetCaptureZones()
@@ -138,9 +287,10 @@ function ENT:ChooseNextIdleAction() -- New Decision System has been set in place
             rand[3] = 0
             moveToPos = self.Flagent:GetPos()+rand
 
-            self:StartActivity(self:GetActivityWeapon('move'))
-            self:SetLastActivity(self:GetActivityWeapon('move')) 
-            self.loco:SetDesiredSpeed(self:GetTravelDistance(moveToPos) >= 1000 and 400 or 200)
+            local speed,anim = self:GetMovementData(moveToPos)
+            self:StartActivity(anim)
+            self:SetLastActivity(anim) 
+            self.loco:SetDesiredSpeed(speed)
             self:MoveToPos(moveToPos)
             self:StartActivity(self:GetActivityWeapon('idle')) 
         else
@@ -149,10 +299,10 @@ function ENT:ChooseNextIdleAction() -- New Decision System has been set in place
             local rand = VectorRand(-50,50)
             rand[3] = 0
             moveToPos = zone:GetPos()+rand
-
-            self:StartActivity(self:GetActivityWeapon('move'))
-            self:SetLastActivity(self:GetActivityWeapon('move')) 
-            self.loco:SetDesiredSpeed(self:GetTravelDistance(moveToPos) >= 1000 and 400 or 200)
+            local speed,anim = self:GetMovementData(moveToPos)
+            self:StartActivity(anim)
+            self:SetLastActivity(anim) 
+            self.loco:SetDesiredSpeed(speed)
             self:MoveToPos(moveToPos)
             self:StartActivity(self:GetActivityWeapon('idle')) 
         end
@@ -169,26 +319,53 @@ function ENT:ChooseNextIdleAction() -- New Decision System has been set in place
         local nav = navmesh.GetNearestNavArea(self.KOTHEnt:GetPos())
         moveToPos = nav and nav:IsValid() and nav:GetRandomPoint() or self.KOTHEnt:GetPos()+VectorRand(-500,500)
 
-        self:StartActivity(self:GetActivityWeapon('move'))
-        self:SetLastActivity(self:GetActivityWeapon('move')) 
-        self.loco:SetDesiredSpeed(self:GetTravelDistance(moveToPos) >= 1000 and 400 or 200)
+        local speed,anim = self:GetMovementData(moveToPos)
+        self:StartActivity(anim)
+        self:SetLastActivity(anim) 
+        self.loco:SetDesiredSpeed(speed)
         self:MoveToPos(moveToPos)
         self:StartActivity(self:GetActivityWeapon('idle')) 
 
     return
+    elseif GetGlobalBool("_ZetaTDM_Gameactive") then
+
+        local moveToPos = self:FindRandomPosition(GetConVar('zetaplayer_wanderdistance'):GetInt()) 
+
+        if zetamath.random(1,2) == 1 then
+            for k,v in RandomPairs(ents.FindByClass("npc_zetaplayer")) do 
+                if IsValid(v) and v.zetaTeam != self.zetaTeam then
+                    moveToPos = v:GetPos()+VectorRand(-100,100)
+                    break
+                end
+            end
+        end
+
+        local speed,anim = self:GetMovementData(moveToPos)
+        self:StartActivity(anim)
+        self:SetLastActivity(anim) 
+        self.loco:SetDesiredSpeed(speed)
+        self:MoveToPos(moveToPos)
+        self:StartActivity(self:GetActivityWeapon('idle')) 
+    return
     elseif zetamath.random(6) == 1 then
         local moveToPos = nil
         local justWander = false
+        local friendinvehicle = false
 
         local rndfriend = ((GetConVar("zetaplayer_stickwithplayer"):GetBool() and self:HasPlayerFriend()) and self:GetPlayerFriend() or self:GetRandomFriend())
         if GetConVar("zetaplayer_friendsticknear"):GetBool() and IsValid(rndfriend) then
+            
+            friendinvehicle = rndfriend:InVehicle()
+
             moveToPos = self:FindRandomPositionNear(rndfriend:GetPos(), GetConVar("zetaplayer_friendstickneardistance"):GetInt())
         else
-            local members = (self.zetaTeam != "SELF" and self:GetTeamMembers(self.zetaTeam) or ((self.IsAdmin and GetConVar("zetaplayer_adminshouldsticktogether"):GetBool()) and self:GetAdmins() or {}))
+            local members = (GetConVar("zetaplayer_useteamsystem"):GetBool() and GetConVar("zetaplayer_teamsstickneareachother"):GetBool() and self.zetaTeam and self:GetTeamMembers(self.zetaTeam) or ((self.IsAdmin and GetConVar("zetaplayer_adminshouldsticktogether"):GetBool()) and self:GetAdmins() or {}))
             if #members > 0 then
-                local rndMember = members[zetamath.random(#members)]
+                local rndmember = members[zetamath.random(#members)]
+                
                 if IsValid(rndmember) then
-                    moveToPos = (rndmember:GetPos() + Vector(zetamath.random(-100, 100), zetamath.random(-100, 100), 0))
+
+                    moveToPos = (rndmember:GetPos() + Vector(zetamath.random(-GetConVar("zetaplayer_teamsstickneardistance"):GetInt(),GetConVar("zetaplayer_teamsstickneardistance"):GetInt()), zetamath.random(-GetConVar("zetaplayer_teamsstickneardistance"):GetInt(), GetConVar("zetaplayer_teamsstickneardistance"):GetInt()), 0))
                 end
             end
         end
@@ -201,6 +378,7 @@ function ENT:ChooseNextIdleAction() -- New Decision System has been set in place
         if (!self.IsAdmin and GetConVar("zetaplayer_allownoclip"):GetBool() or self.IsAdmin and GetConVar("zetaplayer_allowadminnoclip"):GetBool()) and zetamath.random(6) == 1 then
             self:ToggleNoclip(!self:IsInNoclip())
         end
+
         if self:IsInNoclip() then
             if justWander and zetamath.random(4) == 1 then
                 local rndNav = _ZETANAVMESH[zetamath.random(#_ZETANAVMESH)]
@@ -210,9 +388,14 @@ function ENT:ChooseNextIdleAction() -- New Decision System has been set in place
             return
         end
 
-        self:StartActivity(self:GetActivityWeapon('move'))
-        self:SetLastActivity(self:GetActivityWeapon('move')) 
-        self.loco:SetDesiredSpeed(self:GetTravelDistance(moveToPos) >= 1000 and 400 or 200)
+        if friendinvehicle and GetConVar("zetaplayer_allowvehicles"):GetBool() then
+            self:FindVehicle()
+            return
+        end
+        local speed,anim = self:GetMovementData(moveToPos)
+        self:StartActivity(anim)
+        self:SetLastActivity(anim) 
+        self.loco:SetDesiredSpeed(speed)
         self:MoveToPos(moveToPos)
         self:StartActivity(self:GetActivityWeapon('idle')) 
         return
@@ -224,13 +407,13 @@ function ENT:ChooseNextIdleAction() -- New Decision System has been set in place
 
    
 
-end
+end ]]
 
 function ENT:LookforTarget(hunt)
     if !self.HasLethalWeapon then self:ChooseLethalWeapon() end
     if hunt or GetConVar("zetaplayer_alwayshuntfortargets"):GetBool() then
         self:CreateThinkFunction("HuntForEnemies", 1, 0, function()
-            if self:IsChasingSomeone() or IsValid(self:GetEnemy()) then return "abort" end
+            if self:GetState() == "panic" or self:IsChasingSomeone() or IsValid(self:GetEnemy()) then return "abort" end
             self:FindEnemy()
         end)
         self:SetState("huntingtargets")
@@ -249,7 +432,7 @@ function ENT:FindMusicBoxes()
             self:SetState('dancing')
             self:FaceTick(v:GetPos(),200)
             self.SoundPos = v:GetPos()
-            self.DanceWaittime = zetamath.random(0.5,1.5)
+            self.DanceWaittime = zetamath.Rand(0.5,1.5)
             self.CanDance = false 
             timer.Simple(30,function()
                 if self and self:IsValid() then
@@ -269,9 +452,13 @@ function ENT:FindPropToPickup()
     if #enttbl > 0 then
         local prop = enttbl[zetamath.random(#enttbl)]
 
-        self:StartActivity(self:GetActivityWeapon('move'))
-        self:SetLastActivity(self:GetActivityWeapon('move')) 
-        local status = self:MoveToPos(prop:GetPos() + self:GetNormalTo(self:GetPos(), prop:GetPos())*80, false)
+        local pos = prop:GetPos() + self:GetNormalTo(self:GetPos(), prop:GetPos())*80
+
+        local speed,anim = self:GetMovementData(pos)
+        self:StartActivity(anim)
+        self:SetLastActivity(anim) 
+        self.loco:SetDesiredSpeed(speed)
+        local status = self:MoveToPos(pos, false)
         if status != "ok" or !IsValid(prop) then return end
         self:StartActivity( self:GetActivityWeapon('idle') ) 
         
@@ -291,17 +478,21 @@ end
 
 function ENT:MovetoPosition(pos)
     if !util.IsInWorld(pos) then return end
-    self:StartActivity(self:GetActivityWeapon('move'))
-    self:SetLastActivity(self:GetActivityWeapon('move'))
-    self.loco:SetDesiredSpeed(self:GetTravelDistance(pos) >= 1000 and 400 or 200) 
+    local speed,anim = self:GetMovementData(pos)
+
+    self:StartActivity(anim)
+    self:SetLastActivity(anim)
+    self.loco:SetDesiredSpeed(speed) 
     self:MoveToPos(pos)
     self:StartActivity(self:GetActivityWeapon('idle')) 
 end
 
 function ENT:GotoEntity(ent,stopdist)
-    self:StartActivity(self:GetActivityWeapon('move'))
-    self:SetLastActivity(self:GetActivityWeapon('move')) 
-    self.loco:SetDesiredSpeed(self:GetTravelDistance(ent:GetPos()) >= 1000 and 400 or 200) 
+    local speed,anim = self:GetMovementData(ent:GetPos())
+
+    self:StartActivity(anim)
+    self:SetLastActivity(anim) 
+    self.loco:SetDesiredSpeed(speed) 
     self:FollowEntity(ent, nil, stopdist)
     self:StartActivity(self:GetActivityWeapon('idle')) 
 end
@@ -376,7 +567,7 @@ function ENT:FindEntToGrab()
         local target = entities[zetamath.random(#entities)]
         self:Face(target)
         self:LookAt(target, 'both')
-        timer.Simple(zetamath.random(0.5,1.0),function()
+        timer.Simple(zetamath.Rand(0.5,1.0),function()
             if !IsValid(self) then return end
             self:StopLooking()
             self:StopFacing()
@@ -400,9 +591,14 @@ end
 ZetaNavMesh_HidingSpots = nil
 ZetaNavMesh_LastHidingSpotCheckAreaCount = 0
 function ENT:Flee()
-    self:StartActivity(ACT_HL2MP_RUN_PANICKED)
-    self:SetLastActivity(ACT_HL2MP_RUN_PANICKED) 
-    self.loco:SetDesiredSpeed(400) 
+    local speed,anim = self:GetMovementData("run")
+
+    local panicanim = GetConVar("zetaplayer_usepanicanimation"):GetBool() and ACT_HL2MP_RUN_PANICKED or anim
+
+    self:StartActivity(panicanim)
+    self:SetLastActivity(panicanim) 
+
+    self.loco:SetDesiredSpeed(speed) 
 
     local isFleeingFromSomething = IsValid(self.FleeFromTarget)
     local searchDist = GetConVar('zetaplayer_wanderdistance'):GetInt()
@@ -463,7 +659,6 @@ function ENT:Flee()
     if isFleeingFromSomething and (!IsValid(self.FleeFromTarget) or (self:GetTravelDistance(self.FleeFromTarget:GetPos()) > 2500 or self.FleeFromTarget:IsPlayer() and !self.FleeFromTarget:Alive() or self.FleeFromTarget.IsZetaPlayer and self.FleeFromTarget.IsDead)) and timer.Exists("ZetaPanicTimeout"..self:EntIndex()) then
         timer.Remove("ZetaPanicTimeout"..self:EntIndex())
         self:SetState('idle')
-        self.AllowVoice = true
         self.FleeFromTarget = NULL
         DebugText('Panic: No longer panicking')
     
@@ -482,7 +677,7 @@ function ENT:BeginLaugh()
     local snd = 'zetaplayer/vo/laugh'..rnd..'.wav'
     if self.LAUGHVOICEPACKEXISTS then
         snd = "zetaplayer/custom_vo/"..self.VoicePack.."/laugh/laugh"..zetamath.random(self.LaughSoundCount)..".wav"
-    elseif rnd > 50 or self.UseCustomLaugh or self.Permafriend and GetConVar("zetaplayer_friendcustomlaughlinesonly"):GetBool() or GetConVar("zetaplayer_customlaughlinesonly"):GetBool() then
+    elseif rnd > 50 or self.UseCustomLaugh or GetConVar("zetaplayer_customlaughlinesonly"):GetBool() then
         snd = "zetaplayer/custom_vo/laugh/laugh"..zetamath.random(self.LaughSoundCount)..".wav"
     end
     self:ZetaPlayVoiceSound(snd, "zetastoplaugh"..self:EntIndex())
@@ -493,66 +688,73 @@ function ENT:BeginLaugh()
     self:SetState('idle')
 end
 
+local strafeCvar = GetConVar( "zetaplayer_allowstrafing" )
+
 function ENT:ChaseMeleeState()
-    if !IsValid(self) or !IsValid(self:GetEnemy()) then 
-        self:SetState('idle') 
-        return 
+    if !IsValid(self:GetEnemy()) then self:SetState("idle") return end
+    if self:IsInNoclip() then self:ToggleNoclip(false) end
+    if self.Grabbing and self.Weapon != "PHYSGUN" then self:DropHeldprop() end
+
+    if strafeCvar:GetBool() then
+        self:CreateThinkFunction("StrafeMovement", 0, 0, function()
+            if !self:IsChasingSomeone() or !IsValid(self:GetEnemy()) then return "abort" end
+            if self:GetEnemy().IsZetaPlayer and self:GetEnemy():GetState() != "chaseranged" or self:GetRangeSquaredTo(self:GetEnemy()) <= (100*100) or !self:CanSee(self:GetEnemy()) then return end
+
+            local strafeNormal = ((self:GetEnemy():GetPos() - self:GetPos()):Angle():Right()*(zetamath.random(75, 100) * (zetamath.random(2) == 1 and -1 or 1)))
+            if !self.loco:IsOnGround() then strafeNormal = strafeNormal / 3 end
+
+            local myPos = self:GetCenteroid()
+            local strafeCheck = util.TraceLine({
+                start = myPos + strafeNormal,
+                endpos = myPos + strafeNormal - self:GetUp()*self.loco:GetDeathDropHeight(),
+                filter = {self, self:GetEnemy()}
+            })
+            if !strafeCheck.Hit then return end 
+
+            self.loco:SetVelocity(self.loco:GetVelocity() + strafeNormal)
+        end)
+    else
+        self:RemoveThinkFunction("StrafeMovement")
     end
 
-    if self:IsInNoclip() then
-        self:ToggleNoclip(false)
-    end
-    
-    local timeout = CurTime() + zetamath.random(30, 90)   
-    self:CreateThinkFunction("zetabortattack", 0.1, 0, function()
-        if self:GetState() != "chasemelee" then return "failed" end 
-        if CurTime() > timeout then 
-            self:SetNW2Bool('zeta_aggressor', false)
+    local stateTimeOut = CurTime() + zetamath.random(30, 90)   
+    self:CreateThinkFunction("AttackMelee", 0, 0, function()
+        if self:GetState() != "chasemelee" or !IsValid(self:GetEnemy()) then return "failed" end 
+        if CurTime() > stateTimeOut then 
+            self:SetEnemy(NULL)
+            self:SetNW2Bool("zeta_aggressor", false)
             self:StopFacing()
             self:CancelMove()
-            self:SetState('idle')
+            self:SetState("idle")
             return "stop"
         end
+
+        if self:GetRangeSquaredTo(self:GetEnemy()) <= (500*500) then
+            local towards = (self:GetEnemy():GetPos() - self:GetPos()):Angle()[2]
+            local approach = math.ApproachAngle(self:GetAngles()[2], towards, (5 + (self.IsMoving and 15 or 0)))
+            self:SetAngles(Angle(0, approach, 0))
+        end
+
+        local wepData = _ZetaWeaponDataTable[self.Weapon]
+        local range = ((wepData != nil and wepData.fireData != nil) and wepData.fireData.range or 48)
+        if self:GetRangeSquaredTo(self:GetEnemy()) <= (range*range) then self:UseMelee(self:GetEnemy()) end
     end)
 
-    if self.Grabbing and self.Weapon != "PHYSGUN" then
-        self:DropHeldprop()
-    end
+    local speed, anim = self:GetMovementData("run")
+    self:StartActivity(anim)
+    self:SetLastActivity(anim) 
+    self.loco:SetDesiredSpeed(speed)
 
-    local wpnTbl = self.WeaponDataTable[self.Weapon]
-    local keepDistance = wpnTbl.keepDistance or 10
-    local moveSpeed = wpnTbl.moveSpeed or 400
-
-    self:StartActivity(self:GetActivityWeapon('move'))
-    self:SetLastActivity(self:GetActivityWeapon('move')) 
-    self:Face(self:GetEnemy())
-    self.loco:SetDesiredSpeed(moveSpeed)
-
-    local strafingCvar = GetConVar("zetaplayer_allowstrafing")
-    self:ZETA_MoveTo(self:GetEnemy(), {update=true, tolerance=keepDistance, customfunc=function()
-        if strafingCvar:GetBool() and self:CanSee(self:GetEnemy()) and zetamath.random(5) == 1 then
-            self:CreateThinkFunction("StrafeMovement", 0, zetamath.random(500), function()
-                if self.TypingInChat or !self:IsChasingSomeone() or !self:CanSee(self:GetEnemy()) or self:GetRangeSquaredTo(self:GetEnemy()) <= (150*150) then return "failed" end
-                self.loco:SetVelocity(self.loco:GetVelocity() + self:GetRight()*(50*math.random(-1, 1)))
-            end)
-        end
-
-        local wepData = self.WeaponDataTable[self.Weapon]
-        local range = ((wepData != nil and wepData.fireData != nil) and wepData.fireData.range or 48)
-        if self:GetRangeSquaredTo(self:GetEnemy()) <= (range*range) then
-            self:UseMelee(self:GetEnemy())
-        end
-    end})
-
-    self:StartActivity(self:GetActivityWeapon('idle')) 
+    self:ZETA_MoveTo(self:GetEnemy(), {update=true, tolerance=(_ZetaWeaponDataTable[self.Weapon].keepDistance or 10)})
+    self:StartActivity(self:GetActivityWeapon("idle")) 
 end
 
 function ENT:DisrespectState()
     if self.DisCount == 0 then
-        self.AllowVoice = false 
-        self:StartActivity( self:GetActivityWeapon('move'))
-        self:SetLastActivity(self:GetActivityWeapon('move'))
-        self.loco:SetDesiredSpeed(400)  
+        local speed,anim = self:GetMovementData(self.DisEntPos)
+        self:StartActivity( anim)
+        self:SetLastActivity(anim)
+        self.loco:SetDesiredSpeed(speed)  
         self:MoveToPos(self.DisEntPos)
     end
 
@@ -574,15 +776,15 @@ function ENT:ActCommandsState()
 end
 
 function ENT:DancingState()
-    self.AllowVoice = false
 
     coroutine.wait(self.DanceWaittime)
     if self:GetTravelDistance(self.SoundPos) >= 350 then
-        self.loco:SetDesiredSpeed(200)
-        self:StartActivity(self:GetActivityWeapon('move'))
-        self:SetLastActivity(self:GetActivityWeapon('move')) 
-        self.loco:SetDesiredSpeed(self:GetTravelDistance(self.SoundPos) >= 1000 and 400 or 200)
-        self:MoveToPos(self.SoundPos + Vector(zetamath.random(-150, 150), zetamath.random(-150, 150), 0))
+        local pos = self.SoundPos + Vector(zetamath.random(-150, 150), zetamath.random(-150, 150), 0)
+        local speed,anim = self:GetMovementData(pos)
+        self:StartActivity(anim)
+        self:SetLastActivity(anim) 
+        self.loco:SetDesiredSpeed(speed)
+        self:MoveToPos(pos)
     end
 
     local dances = {'taunt_dance', 'taunt_dance', 'taunt_robot'}
@@ -601,88 +803,84 @@ function ENT:DancingState()
 end
 
 function ENT:RangedAttack()
-    if !IsValid(self.Enemy) then self:SetState('idle') return end
-    if self:IsInNoclip() then
-        self:ToggleNoclip(false)
-    end
+    if !IsValid(self:GetEnemy()) then self:SetState("idle") return end
+    if self:IsInNoclip() then self:ToggleNoclip(false) end
+    if self.Grabbing and self.Weapon != "PHYSGUN" then self:DropHeldprop() end
+
     if !self.Delayattack then
-        coroutine.wait(zetamath.random(10)/10)
         self.Delayattack = true
-        if IsValid(self:GetEnemy()) then
-            self:LookAtTick(self:GetEnemy(), 'both', 200, true)
-        end
+        coroutine.wait(zetamath.random(10)/10)
+        if !IsValid(self:GetEnemy()) then self:SetState("idle") return end
+        self:LookAtTick(self:GetEnemy(), "both", 200, true)
     end
 
-    if self.Grabbing and self.Weapon != "PHYSGUN" then
-        self:DropHeldprop()
+    local wepData = _ZetaWeaponDataTable[self.Weapon]
+    local keepDistance = wepData.keepDistance or 300
+    if keepDistance < 1000 and (!self:GetEnemy()._ZetaNoKeepdistance and self:GetEnemy():Health() >= 500 or self:IsSanicNextBot(self:GetEnemy())) then
+        keepDistance = 1000
+    end
+    if !wepData.isExplosive and self.RPGTargets[self:GetEnemy():GetClass()] then
+        local newWep = self.ExplosiveWeapons[zetamath.random(#self.ExplosiveWeapons)]
+        self:ChangeWeapon(newWep)
+        keepDistance = wepData.keepDistance or 300
     end
 
-    local timeout = CurTime() + zetamath.random(30, 90)
-    self:CreateThinkFunction("zetabortattack", 0.1, 0, function()
-        if self:GetState() != "chaseranged" then return "failed" end 
-        if CurTime() > timeout then 
-            self:SetNW2Bool('zeta_aggressor', false)
+    local stateTimeOut = CurTime() + zetamath.random(30, 90)   
+    self:CreateThinkFunction("AttackRanged", 0, 0, function()
+        if self:GetState() != "chaseranged" or !IsValid(self:GetEnemy()) then return "failed" end
+        if CurTime() > stateTimeOut then 
+            self:SetEnemy(NULL)
+            self:SetNW2Bool("zeta_aggressor", false)
             self:StopFacing()
             self:CancelMove()
-            self:SetState('idle')
+            self:SetState("idle")
             return "stop"
         end
-    end)
 
-    local keepDistance = self.WeaponDataTable[self.Weapon].keepDistance or 300
-    if IsValid(self:GetEnemy()) then
-        if keepDistance < 1000 and (self:IsSanicNextBot(self:GetEnemy()) or self:GetEnemy():Health() >= 500 and !self:GetEnemy()._ZetaNoKeepdistance) then
-            keepDistance = 1000
+        local lookTowards = (self:GetRangeSquaredTo(self:GetEnemy()) <= (500*500))
+        if self:CanSee(self:GetEnemy()) then
+            lookTowards = true
+            if self.Weapon == "PHYSGUN" then
+                self:ApproachPhysgunDist(self:GetRangeTo(self:GetEnemy()))
+                if zetamath.random(40) == 1 then
+                    if zetamath.random(2) == 1 then
+                        self:SwingHeldObject()
+                    else
+                        self:SlamHeldObject()
+                    end
+                end
+            else
+                self:FireWeapon(self:GetEnemy())
+            end
         end
-        if !self.WeaponDataTable[self.Weapon].isExplosive and self.RPGTargets[self:GetEnemy():GetClass()] then
-            local newWep = self.ExplosiveWeapons[math.random(#self.ExplosiveWeapons)]
-            self:ChangeWeapon(newWep)
-            keepDistance = self.WeaponDataTable[newWep].keepDistance or 300
-        end
-        self:CreateThinkFunction("zetafaceenemy", 0, 0, function()
-            if !IsValid(self) or !IsValid(self:GetEnemy()) or self:GetState() != "chaseranged" then return "failed" end
-            local pos = self.Enemy:GetPos()
-            local towards = (pos - self:GetPos()):Angle()[2]
+
+        if lookTowards and IsValid(self:GetEnemy()) then
+            local towards = (self:GetEnemy():GetPos() - self:GetPos()):Angle()[2]
             local approach = math.ApproachAngle(self:GetAngles()[2], towards, (5 + (self.IsMoving and 15 or 0)))
             self:SetAngles(Angle(0, approach, 0))
-        end)
-    end
-
-    local moveSpeed = self.WeaponDataTable[self.Weapon].moveSpeed or 400
-    self.loco:SetDesiredSpeed(moveSpeed)
-
-    self:CreateThinkFunction("FireWeapon", 0, 0, function()
-        if self:GetState() != 'chaseranged' or !IsValid(self:GetEnemy()) then return "failed" end
-        if !self:CanSee(self:GetEnemy()) then return end
-        if self.Weapon == 'PHYSGUN' then
-            self:ApproachPhysgunDist(self:GetRangeTo(self.Enemy))
-            if zetamath.random(40) == 1 then
-                if zetamath.random(2) == 1 then
-                    self:SwingHeldObject()
-                else
-                    self:SlamHeldObject()
-                end
-            end
-        else
-            self:FireWeapon(self:GetEnemy())
         end
     end)
 
-    self:MoveOnCondition(keepDistance, GetConVar("zetaplayer_allowstrafing"):GetBool())
+    local speed = self:GetMovementData("run")
+    self.loco:SetDesiredSpeed(speed)
+
+    self:MoveOnCondition(keepDistance, strafeCvar:GetBool())
     self:StartActivity(self:GetActivityWeapon("idle"))
 end
 
 function ENT:FindHurtEnt()
+    if !GetConVar("zetaplayer_allowmedkits"):GetBool() then return end
     local find = self:FindInSight(self.SightDistance, function(ent)
         if ent:IsPlayer() and GetConVar('ai_ignoreplayers'):GetBool() then return false end
         return (ent:IsPlayer() or ent.IsZetaPlayer) and ent:Health() < ent:GetMaxHealth()
     end)
     if #find != 0 then
         local hurtent = find[zetamath.random(#find)]
-        self:StartActivity(self:GetActivityWeapon('move'))
-        self:SetLastActivity(self:GetActivityWeapon('move'))
-        self.loco:SetDesiredSpeed(self:GetTravelDistance(hurtent:GetPos()) >= 1000 and 400 or 200) 
-        self:ChaseEnemy(hurtent,run) -- This isn't an enemy that's just the name of the function
+        local speed,anim = self:GetMovementData(hurtent:GetPos())
+        self:StartActivity(anim)
+        self:SetLastActivity(anim)
+        self.loco:SetDesiredSpeed(speed) 
+        self:FollowEntity( hurtent, run, 60 )
         if !IsValid(hurtent) then self:SetState("idle") return end
         local spawnCount = math.random(1, math.max(1, math.ceil((hurtent:GetMaxHealth()-hurtent:Health())/25)))
         self:SpawnMedKit(spawnCount)
@@ -715,10 +913,11 @@ function ENT:WatchMediaPlayer()
     end
     
     local pos = (self.MediaPlayer:GetPos() + self.MediaPlayer:GetForward()*self.SitPos[1] + self.MediaPlayer:GetRight()*self.SitPos[2])
-    self.loco:SetDesiredSpeed(200)
+    local speed,anim = self:GetMovementData(pos)
+    self.loco:SetDesiredSpeed(speed)
     if self:GetRangeSquaredTo(pos) > (70*70) then
-        self:StartActivity(self:GetActivityWeapon('move'))
-        self:SetLastActivity(self:GetActivityWeapon('move')) 
+        self:StartActivity(anim)
+        self:SetLastActivity(anim) 
         if self:GetRangeSquaredTo(pos) >= (10*10) then
             self:MoveToPos(pos)
         end
@@ -748,7 +947,52 @@ function ENT:ChooseSpawnEnt()
     end
 end
 
+function ENT:MoveDecide()
+    local rndfriend = ((GetConVar("zetaplayer_stickwithplayer"):GetBool() and self:HasPlayerFriend()) and self:GetPlayerFriend() or self:GetRandomFriend())
+    if IsValid(rndfriend) then
+        local pos = self:FindRandomPositionNear(rndfriend:GetPos(), GetConVar("zetaplayer_friendstickneardistance"):GetInt())
+        if util.IsInWorld(pos) then
+            local speed,anim = self:GetMovementData(pos)
+            self:StartActivity(anim)
+            self:SetLastActivity(anim)
+            self.loco:SetDesiredSpeed(speed)
+            self:MoveToPos(pos)
+            self:StartActivity(self:GetActivityWeapon('idle')) 
+            return
+        end
+    else
+        local members = (GetConVar("zetaplayer_teamsstickneareachother"):GetBool() and self.zetaTeam and self:GetTeamMembers(self.zetaTeam) or ((self.IsAdmin and GetConVar("zetaplayer_adminshouldsticktogether"):GetBool()) and self:GetAdmins() or {}))
+        if #members > 0 then
+            local rndmember = members[zetamath.random(#members)]
+            if IsValid(rndmember) then
+                local moveToPos = (rndmember:GetPos() + Vector(zetamath.random(-GetConVar("zetaplayer_teamsstickneardistance"):GetInt(),GetConVar("zetaplayer_teamsstickneardistance"):GetInt()), zetamath.random(-GetConVar("zetaplayer_teamsstickneardistance"):GetInt(), GetConVar("zetaplayer_teamsstickneardistance"):GetInt()), 0))
+
+
+                local speed,anim = self:GetMovementData(moveToPos)
+                self:StartActivity(anim)
+                self:SetLastActivity(anim)
+                self.loco:SetDesiredSpeed(speed)
+                self:MoveToPos(moveToPos)
+                self:StartActivity(self:GetActivityWeapon('idle')) 
+                return
+            end
+        end
+    end
+
+
+    local moveToPos = self:FindRandomPosition(GetConVar('zetaplayer_wanderdistance'):GetInt()) 
+
+    local speed,anim = self:GetMovementData(moveToPos)
+    self:StartActivity(anim)
+    self:SetLastActivity(anim) 
+    self.loco:SetDesiredSpeed(speed)
+    self:MoveToPos(moveToPos)
+    self:StartActivity(self:GetActivityWeapon('idle')) 
+end
+
 function ENT:FindVehicle()
+
+
     local vehicle
     local foundVehicle = false 
     self:CreateThinkFunction("zetafindvehicle",0.5,0,function()
@@ -762,25 +1006,14 @@ function ENT:FindVehicle()
         end
     end)
 
-    local rndfriend = ((GetConVar("zetaplayer_stickwithplayer"):GetBool() and self:HasPlayerFriend()) and self:GetPlayerFriend() or self:GetRandomFriend())
-    if IsValid(rndfriend) then
-        local pos = self:FindRandomPositionNear(rndfriend:GetPos(), GetConVar("zetaplayer_friendstickneardistance"):GetInt())
-        if util.IsInWorld(pos) then
-            self:StartActivity(self:GetActivityWeapon('move'))
-            self:SetLastActivity(self:GetActivityWeapon('move'))
-            self.loco:SetDesiredSpeed(self:GetTravelDistance(pos) >= 1000 and 400 or 200)
-            self:MoveToPos(pos)
-            self:StartActivity(self:GetActivityWeapon('idle')) 
-        end
-    else
-        self:MovetoRandomPos()
-    end
-
+    self:MoveDecide()
+    
     if foundVehicle then
         local closeabort = false
-        self:StartActivity(self:GetActivityWeapon('move'))
-        self:SetLastActivity(self:GetActivityWeapon('move'))
-        self.loco:SetDesiredSpeed(self:GetTravelDistance(vehicle:GetPos()) >= 1000 and 400 or 200)
+        local speed,anim = self:GetMovementData(vehicle:GetPos())
+        self:StartActivity(anim)
+        self:SetLastActivity(anim)
+        self.loco:SetDesiredSpeed(speed)
         local moveResult = self:ZETA_MoveTo(vehicle, {customfunc = function(path)
             if !self:IsVehicleEnterable(vehicle) then return "abort" end
             if self:GetRangeSquaredTo(vehicle) <= (100*100) then closeabort = true return "abort" end
@@ -793,6 +1026,8 @@ function ENT:FindVehicle()
         if !IsValid(self) or self:GetState() != 'idle' or !IsValid(vehicle) or !self:IsVehicleEnterable(vehicle) then return end
         self:StopLooking()
         self:PrepareResetPose()
+        vehicle = self:CheckVehicle(vehicle)
+        print("Went to vehicle")
         self:EnterVehicle(vehicle,!self:IsNormalSeat(vehicle))
     end
 end
@@ -814,7 +1049,7 @@ function ENT:ChooseVehicle()
     end
 
     local decide = zetamath.random(3)
-    if decide == 1 and zetamath.random(2) == 1 and !self.PreventExitOnFirst then
+    if decide == 1 and zetamath.random( 4 ) == 1 and !self.PreventExitOnFirst then
         self:ExitVehicle()
     elseif decide == 2 and 100 * zetamath.random() < self.CombatChance then
         local target = self:FindTargetToRam()
@@ -835,28 +1070,16 @@ function ENT:Huntfortargets()
         end
         local nav = navmesh.GetNearestNavArea(self.KOTHEnt:GetPos())
         local moveToPos = nav and nav:IsValid() and nav:GetRandomPoint() or self.KOTHEnt:GetPos()+VectorRand(-500,500)
-
-        self:StartActivity(self:GetActivityWeapon('move'))
-        self:SetLastActivity(self:GetActivityWeapon('move')) 
-        self.loco:SetDesiredSpeed(self:GetTravelDistance(moveToPos) >= 1000 and 400 or 200)
+        local speed,anim = self:GetMovementData(moveToPos)
+        self:StartActivity(anim)
+        self:SetLastActivity(anim) 
+        self.loco:SetDesiredSpeed(speed)
         self:MoveToPos(moveToPos)
         self:StartActivity(self:GetActivityWeapon('idle')) 
 
     else
 
-        local rndfriend = ((GetConVar("zetaplayer_stickwithplayer"):GetBool() and self:HasPlayerFriend()) and self:GetPlayerFriend() or self:GetRandomFriend())
-        if IsValid(rndfriend) then
-            local pos = self:FindRandomPositionNear(rndfriend:GetPos(), GetConVar("zetaplayer_friendstickneardistance"):GetInt())
-            if util.IsInWorld(pos) then
-                self:StartActivity(self:GetActivityWeapon('move'))
-                self:SetLastActivity(self:GetActivityWeapon('move'))
-                self.loco:SetDesiredSpeed(self:GetTravelDistance(pos) >= 1000 and 400 or 200)
-                self:MoveToPos(pos)
-                self:StartActivity(self:GetActivityWeapon('idle')) 
-            end
-        else
-            self:MovetoRandomPos()
-        end
+        self:MoveDecide()
 
     end
     
@@ -925,12 +1148,12 @@ function ENT:ConductAdminSit()
         if !IsValid(self) then return end
         if !IsValid(attacker) then self:SetState("idle") self:RemoveGesture(ACT_GMOD_IN_CHAT) self:StopFacing() return end
         self:FacePos(attacker:GetPos())
-        self:Wait(zetamath.random(0.0,1.0))
+        self:Wait(zetamath.Rand(0.0,1.0))
         
         if !IsValid(self) then return end
         if !IsValid(attacker) then self:SetState("idle") self:RemoveGesture(ACT_GMOD_IN_CHAT) self:StopFacing() return end
         self:AddGesture( ACT_GMOD_IN_CHAT,false )
-        self:Wait(zetamath.random(0.5,3.0))
+        self:Wait(zetamath.Rand(0.5,3.0))
         
         if !IsValid(self) then return end
         if !IsValid(attacker) then self:SetState("idle") self:RemoveGesture(ACT_GMOD_IN_CHAT) self:StopFacing() return end
@@ -958,7 +1181,7 @@ function ENT:ConductAdminSit()
         if pos then self:FacePos(pos) end
     end
     self:AddGesture( ACT_GMOD_IN_CHAT,false )
-    self:Wait(zetamath.random(0.5,3.0))
+    self:Wait(zetamath.Rand(0.5,3.0))
     
     if !IsValid(self) then return end
     if !IsValid(attacker) then self:SetState("idle") self:RemoveGesture(ACT_GMOD_IN_CHAT) self:StopFacing() if lefttositarea then self:COMMAND_Return(self) end return end
@@ -973,11 +1196,11 @@ function ENT:ConductAdminSit()
         attacker.SitAdmin = self
         attacker.InSit = true
         if attacker.IsZetaPlayer then attacker:CancelMove() attacker:SetState("jailed/held") if 100*math.random() < attacker.TextChance and GetConVar("zetaplayer_allowtextchat"):GetInt() == 1 then attacker.UseTextChat = true end  end
-        self:Wait(zetamath.random(0.1,1.5))
+        self:Wait(zetamath.Rand(0.1,1.5))
         if !IsValid(self) then return end
         if !IsValid(attacker) then self:SetState("idle") self:RemoveGesture(ACT_GMOD_IN_CHAT) self:StopFacing() if lefttositarea then self:COMMAND_Return(self) end return end
             self:Interrogate(zetamath.random(1,10),attacker)
-        self:Wait(zetamath.random(0.1,1.5))
+        self:Wait(zetamath.Rand(0.1,1.5))
         if !IsValid(self) then return end
         if !IsValid(attacker) then self:SetState("idle") self:RemoveGesture(ACT_GMOD_IN_CHAT) self:StopFacing() if lefttositarea then self:COMMAND_Return(self) end return end
         self:DecideOnOffender(attacker,reason)
@@ -988,7 +1211,7 @@ function ENT:ConductAdminSit()
         end
         if lefttositarea then
             self:AddGesture( ACT_GMOD_IN_CHAT,false )
-            self:Wait(zetamath.random(0.5,3.0))
+            self:Wait(zetamath.Rand(0.5,3.0))
             self:RemoveGesture(ACT_GMOD_IN_CHAT)
 
             self:COMMAND_Return(self)
@@ -1002,12 +1225,12 @@ function ENT:ConductAdminSit()
         if attacker.IsZetaPlayer then attacker:CancelMove() attacker:SetState("jailed/held") if 100*math.random() < attacker.TextChance and GetConVar("zetaplayer_allowtextchat"):GetInt() == 1 then attacker.UseTextChat = true end end
 
         self:FacePos(attacker:GetPos())
-        self:Wait(zetamath.random(0.1,1.5))
+        self:Wait(zetamath.Rand(0.1,1.5))
         if !IsValid(self) then return end
         if !IsValid(attacker) then self:SetState("idle") self:RemoveGesture(ACT_GMOD_IN_CHAT) self:StopFacing() if lefttositarea then self:COMMAND_Return(self) end return end
         self:StopFacing()
             self:Interrogate(zetamath.random(1,10),attacker)
-        self:Wait(zetamath.random(0.1,1.5))
+        self:Wait(zetamath.Rand(0.1,1.5))
         if !IsValid(self) then return end
         if !IsValid(attacker) then self:SetState("idle") self:RemoveGesture(ACT_GMOD_IN_CHAT) self:StopFacing() if lefttositarea then self:COMMAND_Return(self) end return end
         self:DecideOnOffender(attacker,reason)
@@ -1018,7 +1241,7 @@ function ENT:ConductAdminSit()
         end
         if lefttositarea then
             self:AddGesture( ACT_GMOD_IN_CHAT,false )
-            self:Wait(zetamath.random(0.5,3.0))
+            self:Wait(zetamath.Rand(0.5,3.0))
             self:RemoveGesture(ACT_GMOD_IN_CHAT)
 
             self:COMMAND_Return(self)
@@ -1032,7 +1255,7 @@ function ENT:ConductAdminSit()
         if attacker.IsZetaPlayer then attacker:CancelMove() attacker:SetState("jailed/held") if 100*math.random() < attacker.TextChance and GetConVar("zetaplayer_allowtextchat"):GetInt() == 1 then attacker.UseTextChat = true end end
         self:Wait(0.1)
         self:AddGesture( ACT_GMOD_IN_CHAT,false )
-        self:Wait(zetamath.random(0.5,3.0))
+        self:Wait(zetamath.Rand(0.5,3.0))
         if !IsValid(self) then return end
         if !IsValid(attacker) then self:SetState("idle") self:RemoveGesture(ACT_GMOD_IN_CHAT) self:StopFacing() if lefttositarea then self:COMMAND_Return(self) end return end
         self:RemoveGesture(ACT_GMOD_IN_CHAT)
@@ -1042,12 +1265,12 @@ function ENT:ConductAdminSit()
         self:MovetoPosition(attacker:GetPos()+self:GetNormalTo(self:GetPos(),attacker:GetPos())*150)
         if !IsValid(attacker) then self:SetState("idle") self:RemoveGesture(ACT_GMOD_IN_CHAT) self:StopFacing() if lefttositarea then self:COMMAND_Return(self) end return end
         self:FacePos(attacker:GetPos())
-        self:Wait(zetamath.random(0.1,1.5))
+        self:Wait(zetamath.Rand(0.1,1.5))
         if !IsValid(self) then return end
         if !IsValid(attacker) then self:SetState("idle") self:RemoveGesture(ACT_GMOD_IN_CHAT) self:StopFacing() if lefttositarea then self:COMMAND_Return(self) end return end
         self:StopFacing()
             self:Interrogate(zetamath.random(1,10),attacker)
-        self:Wait(zetamath.random(0.1,1.5))
+        self:Wait(zetamath.Rand(0.1,1.5))
         
         self:DecideOnOffender(attacker,reason)
         if IsValid(attacker) then
@@ -1057,7 +1280,7 @@ function ENT:ConductAdminSit()
         end
         if lefttositarea then
             self:AddGesture( ACT_GMOD_IN_CHAT,false )
-            self:Wait(zetamath.random(0.5,3.0))
+            self:Wait(zetamath.Rand(0.5,3.0))
             self:RemoveGesture(ACT_GMOD_IN_CHAT)
 
             self:COMMAND_Return(self)
@@ -1131,19 +1354,7 @@ function ENT:LookforButton()
         end
     end)
 
-    local rndfriend = ((GetConVar("zetaplayer_stickwithplayer"):GetBool() and self:HasPlayerFriend()) and self:GetPlayerFriend() or self:GetRandomFriend())
-    if IsValid(rndfriend) then
-        local pos = self:FindRandomPositionNear(rndfriend:GetPos(), GetConVar("zetaplayer_friendstickneardistance"):GetInt())
-        if util.IsInWorld(pos) then
-            self:StartActivity(self:GetActivityWeapon('move'))
-            self:SetLastActivity(self:GetActivityWeapon('move'))
-            self.loco:SetDesiredSpeed(self:GetTravelDistance(pos) >= 1000 and 400 or 200)
-            self:MoveToPos(pos)
-            self:StartActivity(self:GetActivityWeapon('idle')) 
-        end
-    else
-        self:MovetoRandomPos()
-    end
+    self:MoveDecide()
 
     if IsValid(self.Enemy) then 
         self:SetState('chase'..(self.HasMelee and 'melee' or 'ranged')) 
@@ -1181,19 +1392,7 @@ function ENT:FindConversPartner()
         end
     end)
 
-    local rndfriend = ((GetConVar("zetaplayer_stickwithplayer"):GetBool() and self:HasPlayerFriend()) and self:GetPlayerFriend() or self:GetRandomFriend())
-    if IsValid(rndfriend) then
-        local pos = self:FindRandomPositionNear(rndfriend:GetPos(), GetConVar("zetaplayer_friendstickneardistance"):GetInt())
-        if util.IsInWorld(pos) then
-            self:StartActivity(self:GetActivityWeapon('move'))
-            self:SetLastActivity(self:GetActivityWeapon('move'))
-            self.loco:SetDesiredSpeed(self:GetTravelDistance(pos) >= 1000 and 400 or 200)
-            self:MoveToPos(pos)
-            self:StartActivity(self:GetActivityWeapon('idle')) 
-        end
-    else
-        self:MovetoRandomPos()
-    end
+    self:MoveDecide()
 
     if IsValid(partner) then
         self:SetState("conversation")
@@ -1206,7 +1405,7 @@ function ENT:FindConversPartner()
         self.Respond = false
         self.ConverseBegan = false
         
-        self.UseTextChat = (100 * zetamath.random() < self.TextChance and GetConVar("zetaplayer_allowtextchat"):GetBool())
+        self.UseTextChat = (zetamath.random( 1, 100 ) < self.TextChance and GetConVar("zetaplayer_allowtextchat"):GetBool())
 
         partner.ConversePartner = self
         if partner.IsZetaPlayer then
@@ -1214,7 +1413,7 @@ function ENT:FindConversPartner()
             partner.AllowResponse = false
             partner.Respond = true
             partner.ConverseBegan = false
-            partner.UseTextChat = (100 * zetamath.random() < partner.TextChance and GetConVar("zetaplayer_allowtextchat"):GetBool())
+            partner.UseTextChat = (zetamath.random( 1, 100 ) < partner.TextChance and GetConVar("zetaplayer_allowtextchat"):GetBool())
             partner.StartedConverse = false
             partner:SetState("conversation")
         end
@@ -1237,7 +1436,7 @@ function ENT:Converse()
     end
 
     if self:GetRangeSquaredTo(self.ConversePartner) > (100*100) then
-        local pos = (self.ConversePartner:GetPos() + self:GetNormalTo(self:GetPos(), self.ConversePartner:GetPos())*90)
+
         self:GotoEntity(self.ConversePartner, 90)
         if !IsValid(self.ConversePartner) then self:SetState("idle") return end
         self:StartActivity(self:GetActivityWeapon('idle')) 
@@ -1348,7 +1547,7 @@ function ENT:Converse()
 end
 
 function ENT:SittingState()
-    if zetamath.random(20) == 1 and !self.PlayingPoker then 
+    if zetamath.random( 100 ) == 1 and !self.PlayingPoker then 
         self:ExitVehicle() 
         return 
     end
@@ -1378,26 +1577,156 @@ function ENT:FindGPokerTable()
         end
     end)
 
-    local rndfriend = ((GetConVar("zetaplayer_stickwithplayer"):GetBool() and self:HasPlayerFriend()) and self:GetPlayerFriend() or self:GetRandomFriend())
-    if IsValid(rndfriend) then
-        local pos = self:FindRandomPositionNear(rndfriend:GetPos(), GetConVar("zetaplayer_friendstickneardistance"):GetInt())
-        if util.IsInWorld(pos) then
-            self:StartActivity(self:GetActivityWeapon('move'))
-            self:SetLastActivity(self:GetActivityWeapon('move'))
-            self.loco:SetDesiredSpeed(self:GetTravelDistance(pos) >= 1000 and 400 or 200)
-            self:MoveToPos(pos)
-            self:StartActivity(self:GetActivityWeapon('idle')) 
-        end
-    else
-        self:MovetoRandomPos()
-    end
+    self:MoveDecide()
 
     if IsValid(pokerTbl) then
-        self:StartActivity(self:GetActivityWeapon('move'))
-        self:SetLastActivity(self:GetActivityWeapon('move')) 
-        self.loco:SetDesiredSpeed(self:GetTravelDistance(pokerTbl:GetPos()) > 1000 and 400 or 200)
+        local speed,anim = self:GetMovementData(pokerTbl:GetPos())
+        self:StartActivity(anim)
+        self:SetLastActivity(anim) 
+        self.loco:SetDesiredSpeed(speed)
         self:ZETA_MoveTo(pokerTbl, {tolerance=96})
         self:StartActivity(self:GetActivityWeapon('idle'))
         self:JoinPokerGame(pokerTbl)
     end
+end
+
+function ENT:PlaceDupe()
+    if !self:CanUseWeapon("TOOLGUN") then self:SetState("idle") return end
+
+    if GetConVar("zetaplayer_building_placedupesinopenareas"):GetBool() then
+        local navs = self:FindNavAreas(self:GetPos(),GetConVar("zetaplayer_wanderdistance"):GetInt())
+
+        for k, v in RandomPairs( navs ) do
+            if IsValid( v ) and v:GetSizeX() >= 800 and v:GetSizeY() >= 800 then
+                local pos = v:GetRandomPoint()
+
+                local speed,anim = self:GetMovementData(pos)
+                self:StartActivity(anim)
+                self:SetLastActivity(anim) 
+                self.loco:SetDesiredSpeed(speed)
+                self:MoveToPos(pos)
+                self:StartActivity(self:GetActivityWeapon('idle')) 
+                
+                break
+            end
+        end
+        
+    end
+
+    self:ChangeWeapon("TOOLGUN")
+    coroutine.wait(0.5)
+
+    local rndspot = self:GetPos()+Vector(math.random(-500,500),math.random(-500,500),math.random(-100,-50))
+
+    self:LookAt2("zetalookatboth",200,rndspot)
+
+    coroutine.wait(0.5)
+
+    local trace_ = self:UseToolGun()
+
+    self:GetRandomDupe(function(data)
+        self:PasteDuplication(trace_.HitPos,self:GetAngles(),data)
+       
+        if GetConVar('zetaplayer_consolelog'):GetInt() == 1 then
+            if GetConVar("zetaplayer_showzetalogonscreen"):GetInt() == 1 then
+                net.Start("zeta_sendonscreenlog",true)
+                net.WriteString(self.zetaname..' used tool Duplicator Tool')
+                net.WriteColor(Color(255,255,255),false)
+                net.Broadcast()
+            end
+            MsgAll('ZETA: ',self:GetNW2String('zeta_name','Zeta Player')..' used tool Duplicator Tool')
+        end
+
+    end)
+    self.DupeCooldown = CurTime()+GetConVar("zetaplayer_building_dupecooldown"):GetInt()
+    self:SetState("idle")
+end
+
+function ENT:BuildDupe()
+    if !self:CanUseWeapon("TOOLGUN") or !self:CanUseWeapon("PHYSGUN") then self:SetState("idle") return end
+    self.BuildingDupe = true
+
+    if GetConVar("zetaplayer_building_placedupesinopenareas"):GetBool() and IsValid( self.CurrentNavArea ) and self.CurrentNavArea:GetSizeX() < 800 and self.CurrentNavArea:GetSizeY() < 800 then
+        local navs = self:FindNavAreas(self:GetPos(),GetConVar("zetaplayer_wanderdistance"):GetInt())
+
+        for k, v in RandomPairs( navs ) do
+            if IsValid( v ) and v:GetSizeX() >= 800 and v:GetSizeY() >= 800 then
+                local pos = v:GetRandomPoint()
+
+                local speed,anim = self:GetMovementData(pos)
+                self:StartActivity(anim)
+                self:SetLastActivity(anim) 
+                self.loco:SetDesiredSpeed(speed)
+                self:MoveToPos(pos)
+                self:StartActivity(self:GetActivityWeapon('idle')) 
+
+                break
+            end
+        end
+        
+    end
+
+    self:BuildADuplication(self:GetPos(),self:GetAngles()) -- Surprisingly I had some trouble with this
+
+
+    while self.BuildingDupe do
+        coroutine.yield()
+    end
+
+    self.DupeCooldown = CurTime()+GetConVar("zetaplayer_building_dupecooldown"):GetInt()
+    self:SetState("idle")
+end
+
+
+function ENT:PropAddingState()
+    self:AddOntoProp(self.selectedaddonprop)
+
+    self.selectedaddonprop = nil
+    self:SetState("idle")
+end
+
+
+function ENT:GotoMentioner()
+
+    if self:IsInNoclip() then
+
+        self:NoClipTo(self:GetNoclipSpot( self.TextChatMentioner:GetPos() + Vector( zetamath.random( -100, 100 ), zetamath.random( -100, 100 ), 0 ) ))
+
+    else
+
+        if self.TextChatMentioner:InVehicle() then
+
+            self:FindVehicle()
+            
+        else
+
+        self:GotoEntity(self.TextChatMentioner, 90)
+
+        end
+
+    end
+
+    
+    self:SetState("idle")
+
+end
+
+function ENT:FollowMentioner()
+
+    if !IsValid( self.TextChatMentioner ) then self:SetState( "idle" ) return end
+
+    self:CreateThinkFunction( "followtimeout", 0, 0, function()
+        if self:GetState() != "followmentioner" then return "failed" end
+        if !IsValid( self.TextChatMentioner ) or CurTime() > self.followtimeout then self:SetState( "idle" ) return "failed" end
+    end )
+
+
+    self:ToggleNoclip( false )
+
+    if self:GetRangeSquaredTo( self.TextChatMentioner ) >= ( 100 * 100 ) then
+
+        self:GotoEntity(self.TextChatMentioner, 90)
+
+    end
+
 end

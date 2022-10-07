@@ -63,7 +63,9 @@ TOOL.ClientConVar = {
 	["customfallinglinesonly"] = "0",
 	["customquestionlinesonly"] = "0",
 	["customrespondlinesonly"] = "0",
-	["custommediawatchlinesonly"] = "0"
+	["custommediawatchlinesonly"] = "0",
+
+	["isrespawning"] = "0"
 
 }
 
@@ -119,7 +121,9 @@ local defaultvars = {
 	["zetacreator_customfallinglinesonly"] = "0",
 	["zetacreator_customquestionlinesonly"] = "0",
 	["zetacreator_customrespondlinesonly"] = "0",
-	["zetacreator_custommediawatchlinesonly"] = "0"
+	["zetacreator_custommediawatchlinesonly"] = "0",
+
+	["isrespawning"] = "0"
 
 }
 
@@ -206,8 +210,8 @@ end
 
 
 function TOOL:LeftClick( tr )
-    
-	local zeta = ents.Create("npc_zetaplayer")
+    local class = tobool(self:GetClientNumber("isrespawning", 0)) and "zeta_zetaplayerspawner" or "npc_zetaplayer"
+	local zeta = ents.Create(class)
 	zeta:SetPos(tr.HitPos)
 
 	
@@ -219,8 +223,10 @@ function TOOL:LeftClick( tr )
 	local name = self:GetClientInfo( "zetaname" ) != "" and self:GetClientInfo( "zetaname" ) or nil
 	local team_ = self:GetClientInfo( "zetateam" ) != "" and self:GetClientInfo( "zetateam" ) or nil
 	local personality,pertype = self:CreatePersonality()
+	local physcolor = tobool(self:GetClientNumber("usephysguncolor",0)) and Vector(self:GetClientNumber( "physr" )/255,self:GetClientNumber( "physg" )/255,self:GetClientNumber( "physb" )/255) or nil
+	local playercolor = tobool(self:GetClientNumber("useplaymodelcolor",0)) and Vector(self:GetClientNumber( "mdlr" )/255,self:GetClientNumber( "mdlg" )/255,self:GetClientNumber( "mdlb" )/255) or nil
 
-	ZetaPlayer_ApplySpawnOverridedata(zeta,name,model,personality,pfp,vp,team_)
+	ZetaPlayer_ApplySpawnOverridedata(zeta,name,model,personality,pfp,vp,team_,nil,physcolor,playercolor)
     
 	zeta.IsAdmin = tobool(self:GetClientNumber( "isadmin" ))
     zeta.ShouldSpawnAdmin = tobool(self:GetClientNumber( "isadmin" ))
@@ -259,20 +265,13 @@ function TOOL:LeftClick( tr )
 	zeta.UseCustomConRespond = tobool(self:GetClientNumber( "customrespondlinesonly" ))
 	zeta.UseCustomMediaWatch = tobool(self:GetClientNumber( "custommediawatchlinesonly" ))
 
-
-	if tobool(self:GetClientNumber( "usephysguncolor" )) then
-    	zeta:SetNW2Vector('zeta_coloroverride', Vector(self:GetClientNumber( "physr" )/255,self:GetClientNumber( "physg" )/255,self:GetClientNumber( "physb" )/255))
-	end
-	if tobool(self:GetClientNumber( "useplaymodelcolor" )) then
-    	zeta:SetNW2Vector('zeta_playercoloroverride',Vector(self:GetClientNumber( "mdlr" )/255,self:GetClientNumber( "mdlg" )/255,self:GetClientNumber( "mdlb" )/255))
-	end
 	zeta:Spawn()
 
 	undo.Create( 'Zeta Player' )
 		undo.AddEntity(zeta)
 		undo.SetPlayer(self:GetOwner())
-		undo.SetCustomUndoText( 'Undone Zeta Player ('..self:GetClientInfo( "zetaname" )..')' )
-	undo.Finish('Zeta Player ('..self:GetClientInfo( "zetaname" )..')')
+		undo.SetCustomUndoText( 'Undone Zeta Player ('..zeta.zetaname..')' )
+	undo.Finish('Zeta Player ('..zeta.zetaname..')')
 
 	timer.Simple(0,function()
 		zeta:SetHealth(self:GetClientNumber( "health",100 ))
@@ -453,7 +452,7 @@ function TOOL.BuildCPanel(panel)
             panel:TextEntry("Model","zetacreator_zetamodel")
             panel:ControlHelp("The model the created zeta should use")
 
-
+			
 
             panel:NumSlider("Spawning Health", "zetacreator_health", 1, 10000, 0)
             panel:ControlHelp("The amount of health the zeta should spawn with")
@@ -461,7 +460,8 @@ function TOOL.BuildCPanel(panel)
             panel:NumSlider("Spawning Armor", "zetacreator_armor", 0, 10000, 0)
             panel:ControlHelp("The amount of armor the zeta should spawn with")
 
-            
+			panel:CheckBox('Respawning Zeta','zetacreator_isrespawning')
+            panel:ControlHelp("If the zeta should be a Respawning Zeta")
 
 			panel:CheckBox('Spawn as Friend','zetacreator_isfriend')
             panel:ControlHelp("If the zeta should spawn as your friend. Bypasses max friend count")

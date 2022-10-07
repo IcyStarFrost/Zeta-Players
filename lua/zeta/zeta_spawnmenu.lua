@@ -36,7 +36,7 @@ function ENT:SpawnProp(down)
     if self.TypingInChat then return end
     if self.IsBuilding == true then return end
     if self.Grabbing == true then return end
-    if GetConVar('zetaplayer_allowspawnmenu'):GetInt() == 0 then return end
+    if !GetConVar('zetaplayer_allowprops'):GetBool() then return end
     if self.CurrentSpawnedProps >= GetConVar('zetaplayer_proplimit'):GetInt() then return end
     if game.SinglePlayer() and !self:TestPVS( Entity(1) ) then return end
     self.IsBuilding = true
@@ -65,13 +65,9 @@ function ENT:SpawnProp(down)
 
         local angleforward = attach.Ang:Forward()
         origintrace = util.TraceLine({start = attach.Pos,endpos = angleforward*800000,filter = self})
-
+        self:EmitSound('ui/buttonclickrelease.wav',65)
 
         prop = ents.Create('prop_physics')
-        if GetConVar('zetaplayer_removepropsondeath'):GetInt() == 1 then
-            self:DeleteOnRemove(prop)
-        end
-        self:EmitSound('ui/buttonclickrelease.wav',65)
         prop:SetModel(self.ValidProps[math.random(#self.ValidProps)])
         local mins = prop:OBBMins()
         prop:SetPos(origintrace.HitPos - origintrace.HitNormal * mins.z)
@@ -91,6 +87,7 @@ function ENT:SpawnProp(down)
         if self.Weapon == 'TOOLGUN' and math.random(1,2) == 1 then
             self:UseToolGun()
         end
+
         if GetConVar('zetaplayer_consolelog'):GetInt() == 1 then
             if GetConVar("zetaplayer_showzetalogonscreen"):GetInt() == 1 then
                 net.Start("zeta_sendonscreenlog",true)
@@ -100,45 +97,66 @@ function ENT:SpawnProp(down)
             end
             MsgAll('ZETA: ',self:GetNW2String('zeta_name','Zeta Player')..' spawned model ('..prop:GetModel()..')')
         end
+
         local min,max = prop:GetModelBounds()
-        if GetConVar('zetaplayer_allowlargeprops'):GetInt() == 1 then
+    if GetConVar('zetaplayer_allowlargeprops'):GetInt() == 1 then
         if GetConVar('zetaplayer_freezelargeprops'):GetInt() == 1 then
-            if max.x and max.y > 70 then
+            if max.x > 70 and max.y > 70 then
                 prop:GetPhysicsObject():EnableMotion(false)
                 DebugText('Spawnmenu: Freeze Large Props is on! Froze '..tostring(prop)..'  Bound nums = '..max.x..' '..max.y..' '..max.z)
             end
         end
+
     else
-        if max.x and max.y > 70 or max.z > 100 then
+        if max.x > 70 and max.y > 70 or max.z > 100 then
             prop:Remove()
             DebugText('Spawnmenu: Prop was considered large! Removed!')
             self.IsBuilding = false
             return
         end
-
     end
 
         if GetConVar('zetaplayer_propspawnunfrozen'):GetInt() == 0 then
-        if math.random(1,2) == 1 then
-            prop:GetPhysicsObject():EnableMotion(false)
-        else
-            timer.Simple(20,function()
-                if !self:IsValid() then return end
-                if !prop:IsValid() then return end
-                if !prop:GetPhysicsObject():IsValid() then return end
+
+            if math.random(1,2) == 1 then
                 prop:GetPhysicsObject():EnableMotion(false)
-            end)
+            else
+                timer.Simple(20,function()
+                    if !self:IsValid() then return end
+                    if !prop:IsValid() then return end
+                    if !prop:GetPhysicsObject():IsValid() then return end
+                    prop:GetPhysicsObject():EnableMotion(false)
+                end)
+            end
+
         end
-         end
+
         table.insert(self.SpawnedENTS,prop)
         self.CurrentSpawnedProps = self.CurrentSpawnedProps + 1
+
         DebugText('Spawnmenu: Created a Prop! Now have '..self.CurrentSpawnedProps..' Props with the limit being, '..GetConVar('zetaplayer_proplimit'):GetInt())
+
         if ( SERVER ) then
             prop:CallOnRemove('propcallremove'..prop:EntIndex(),function()
                 if !self:IsValid() then return end
                 self.CurrentSpawnedProps = self.CurrentSpawnedProps - 1
                 table.RemoveByValue(self.SpawnedENTS,prop)
             end)
+        end
+
+        local zetastats = file.Read("zetaplayerdata/zetastats.json")
+
+        if zetastats then
+            zetastats = util.JSONToTable(zetastats)
+
+            if zetastats then
+
+                zetastats["spawnedpropscount"] = zetastats["spawnedpropscount"] and zetastats["spawnedpropscount"]+1 or 1
+
+                ZetaFileWrite("zetaplayerdata/zetastats.json",util.TableToJSON(zetastats,true))
+            else
+                ZetaFileWrite("zetaplayerdata/zetastats.json","[]")
+            end
         end
 
         
@@ -186,7 +204,7 @@ function ENT:SpawnMedKit(overrideCount)
     if self.TypingInChat then return end
     if self.IsBuilding == true then return end
     if self.Grabbing == true then return end
-    if GetConVar('zetaplayer_allowspawnmenu'):GetInt() == 0 then return end
+    if GetConVar('zetaplayer_allowmedkits'):GetInt() == 0 then return end
     if self.CurrentSpawnedSENTS >= GetConVar('zetaplayer_sentlimit'):GetInt() then return end
     self.IsBuilding = true
 
@@ -203,9 +221,6 @@ function ENT:SpawnMedKit(overrideCount)
         if !IsValid(self) then return end
         
         local medkit = ents.Create('item_healthkit')
-        if GetConVar('zetaplayer_removepropsondeath'):GetInt() == 1 then
-            self:DeleteOnRemove(medkit)
-        end
         medkit:SetModel('models/Items/HealthKit.mdl')
         medkit:SetPos(self:GetPos()+self:GetForward()*50+Vector(0,0,5))
         medkit.IsZetaProp = true
@@ -262,7 +277,7 @@ function ENT:SpawnArmorBattery()
     if self.TypingInChat then return end
     if self.IsBuilding == true then return end
     if self.Grabbing == true then return end
-    if GetConVar('zetaplayer_allowspawnmenu'):GetInt() == 0 then return end
+    if GetConVar('zetaplayer_allowarmorbatteries'):GetInt() == 0 then return end
     if self.CurrentSpawnedSENTS >= GetConVar('zetaplayer_sentlimit'):GetInt() then return end
     self.IsBuilding = true
 
@@ -279,9 +294,6 @@ function ENT:SpawnArmorBattery()
         if !IsValid(self) then return end
         
         local battery = ents.Create('item_battery')
-        if GetConVar('zetaplayer_removepropsondeath'):GetInt() == 1 then
-            self:DeleteOnRemove(battery)
-        end
         battery:SetModel('models/Items/battery.mdl')
         battery:SetPos(self:GetPos()+self:GetForward()*50+Vector(0,0,5))
         battery.IsZetaProp = true
@@ -391,6 +403,13 @@ function ENT:SpawnNPC()
             npc:SetSpawnEffect( true )
             npc:AttemptGiveWeapons()
             npc:Spawn()
+
+            local mins = npc:OBBMins()
+            local pos = npc:GetPos()
+
+            pos.z = pos.z - mins.z 
+
+            npc:SetPos(pos)
 
             self.achievement_ProCreator = self.achievement_ProCreator + 1
 

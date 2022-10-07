@@ -9,6 +9,18 @@ local math = math
 local util = util
 local ents = ents
 
+local oldisvalid = IsValid
+
+local function IsValid( ent )
+    if oldisvalid( ent ) and ent.IsZetaPlayer then
+        
+        return !ent.IsDead 
+    else
+        return oldisvalid( ent )
+    end
+end
+
+
     ENT.CurrentSpawnedLights = 0
     ENT.CurrentSpawnedRopes = 0
     ENT.CurrentSpawnedBalloons = 0
@@ -23,9 +35,9 @@ local ents = ents
     }
 
     function ENT:UseToolGunOn(ent) -- Fun toolgun effect
-        if !self:IsValid() then return end
-        if !self.WeaponENT:IsValid() then return end
-        if ent and ent:IsValid() and self.WeaponENT then
+        if !IsValid(self) then return end
+        if !IsValid(self.WeaponENT) then return end
+        if IsValid(ent) then
         if self:IsPlayingGesture(ACT_HL2MP_GESTURE_RANGE_ATTACK_REVOLVER) then
             self:RemoveGesture(ACT_HL2MP_GESTURE_RANGE_ATTACK_REVOLVER)
         end
@@ -62,6 +74,7 @@ local ents = ents
     end
 
     function ENT:UseToolGun(ignoreents)  
+        if !IsValid(self.WeaponENT) then return end
         local ignore = false
         local origintrace
         if ignoreents then
@@ -73,10 +86,11 @@ local ents = ents
         end
         local efdata = EffectData()
         local attach = self.WeaponENT:GetAttachment(1)
+
+        if !attach or !attach.Pos then
+            attach = {Pos = self.WeaponENT:GetPos(),Ang = self.WeaponENT:GetAngles()}
+        end
         if ignore then
-            if !attach or !attach.Pos then
-                attach = {Pos = self.WeaponENT:GetPos(),Ang = self.WeaponENT:GetAngles()}
-            end
             origintrace = util.TraceLine({start = attach.Pos,endpos = self.WeaponENT:GetForward()*800000,filter = self,collisiongroup = COLLISION_GROUP_WORLD})
         else
             origintrace = util.TraceLine({start = attach.Pos,endpos = self.WeaponENT:GetForward()*800000,filter = self})
@@ -294,9 +308,8 @@ function ENT:UseRopeTool()
                         self:StopFacing()
                         self:StopLooking()
                         local rope = constraint.Rope(ent1,ent2,0,0,pos1,pos2,ent1:GetPos():Distance(ent2:GetPos()),math.random(0,200),0,math.random(1.0,10.0),self.RopeMats[math.random(#self.RopeMats)],false)
-                        if rope == false or !rope:IsValid() then self.IsBuilding = false return end
+                        if !rope or !rope:IsValid() then self.IsBuilding = false return end
                         rope.IsZetaProp = true
-                        self:DeleteOnRemove(rope)
                         table.insert(self.SpawnedENTS,rope)
                         self.CurrentSpawnedRopes = self.CurrentSpawnedRopes + 1
                         if ( SERVER ) then
@@ -374,9 +387,7 @@ function ENT:UseLightTool()
         local hitdata = self:UseToolGun()
 
         local light = ents.Create('zeta_light') -- We use our own light
-        if GetConVar("zetaplayer_removepropsondeath"):GetInt() == 1 then
-        self:DeleteOnRemove(light)
-        end
+
         light:SetPos(hitdata.HitPos+hitdata.Normal*-10)
         light:SetModel('models/maxofs2d/light_tubular.mdl')
         light.IsZetaProp = true
@@ -425,6 +436,28 @@ end
 
 
 
+local function DoRemoveEntity( ent )
+
+	if ( !IsValid( ent ) || ent:IsPlayer() ) then return false end
+
+	constraint.RemoveAll( ent )
+
+	timer.Simple( 1, function() if ( IsValid( ent ) ) then ent:Remove() end end )
+
+	ent:SetNotSolid( true )
+	ent:SetMoveType( MOVETYPE_NONE )
+	ent:SetNoDraw( true )
+
+	local ed = EffectData()
+		ed:SetOrigin( ent:GetPos() )
+		ed:SetEntity( ent )
+	util.Effect( "entity_remove", ed, true, true )
+
+	return true
+
+end
+
+
 function ENT:UseRemoverTool(ent)
     if self.TypingInChat then return end
     if self.IsBuilding == true then return end
@@ -457,7 +490,25 @@ function ENT:UseRemoverTool(ent)
  
 
                 self:UseToolGunOn(selectedprop)
-                selectedprop:Remove()
+
+
+                
+
+            
+                if math.random( 1, 2 ) == 1 then
+                    local ConstrainedEntities = constraint.GetAllConstrainedEntities( selectedprop )
+                    
+                    for _, Entity in pairs( ConstrainedEntities ) do
+                
+                        DoRemoveEntity( Entity )
+
+                    end
+
+                else
+
+                    selectedprop:Remove()
+                    
+                end
 
                 self.achievement_Remove = self.achievement_Remove + 1
                 
@@ -543,9 +594,7 @@ function ENT:UseBalloonTool()
         local hitdata = self:UseToolGun()
 
         local balloon = ents.Create('zeta_balloon') -- We use our own balloon
-        if GetConVar("zetaplayer_removepropsondeath"):GetInt() == 1 then
-        self:DeleteOnRemove(balloon)
-        end
+
         balloon:SetPos(hitdata.HitPos+hitdata.Normal*-10)
         balloon.IsZetaProp = true
         balloon:SetOwner( self )
@@ -623,9 +672,7 @@ function ENT:UseTrailsTool()
                 local start = math.random(0,128)
                 local end_ = math.random(0,128)
                 local trail = util.SpriteTrail( selectedprop, 0, Color(math.random(0,255),math.random(0,255),math.random(0,255)), false, start, end_, math.random(0.0,10.0), 1 / ( start + end_ ) * 0.59,self.TrailMats[math.random(#self.TrailMats)] )
-                if GetConVar("zetaplayer_removepropsondeath"):GetInt() == 1 then
-                self:DeleteOnRemove(trail)
-                end
+
                 trail.IsZetaProp = true
                 if ( SERVER ) then
                     trail:CallOnRemove('trailcallremove'..trail:EntIndex(),function()
@@ -698,9 +745,7 @@ function ENT:UseMusicBoxTool()
         }
 
         local box = ents.Create('zeta_musicbox') -- Muuuuuusssiiiiiiiic!
-        if GetConVar("zetaplayer_removepropsondeath"):GetInt() == 1 then
-        self:DeleteOnRemove(box)
-        end
+
         box:SetPos(hitdata.HitPos+hitdata.Normal*-10)
         box:SetOwner( self )
         box.IsZetaProp = true
@@ -901,9 +946,7 @@ function ENT:UseEmitterTool()
         local hitdata = self:UseToolGun()
 
         local emitter = ents.Create('zeta_emitter') -- We use our own emitter 
-        if GetConVar("zetaplayer_removepropsondeath"):GetInt() == 1 then
-        self:DeleteOnRemove(emitter)
-        end
+
         emitter:SetPos(hitdata.HitPos+hitdata.Normal)
         emitter:SetAngles(-hitdata.Normal:Angle())
         emitter.IsZetaProp = true
@@ -1058,9 +1101,7 @@ function ENT:UseDynamiteTool()
         local hitdata = self:UseToolGun()
 
         local dynamite = ents.Create('zeta_dynamite') 
-        if GetConVar("zetaplayer_removepropsondeath"):GetInt() == 1 then
-        self:DeleteOnRemove(dynamite)
-        end
+
         dynamite:SetPos(hitdata.HitPos+hitdata.Normal)
         dynamite:SetAngles(-hitdata.Normal:Angle())
         dynamite.IsZetaProp = true
@@ -1173,6 +1214,8 @@ function ENT:UseWorldRopeTool()
 
                 local trace = self:UseToolGun(true)
 
+                if !trace then return end
+
                 pos1 = trace.HitPos
 
                 DebugText('Tool: Set Pos 1..')
@@ -1185,15 +1228,13 @@ function ENT:UseWorldRopeTool()
                 timer.Simple(math.random(0.5,1.5),function()
                     if !self:IsValid() then return end
                         local trace = self:UseToolGun(true)
+                        if !trace then return end
                         pos2 = trace.HitPos
                         self:StopFacing()
                         self:StopLooking()
                         local rope = constraint.Rope(Entity(0),Entity(0),0,0,pos1,pos2,pos1:Distance(pos2),math.random(0,200),0,math.random(1.0,10.0),self.RopeMats[math.random(#self.RopeMats)],false)
-                        if rope == false or !rope:IsValid() then self.IsBuilding = false return end
+                        if !rope or !rope:IsValid() then self.IsBuilding = false return end
                         rope.IsZetaProp = true
-                        if GetConVar("zetaplayer_removepropsondeath"):GetInt() == 1 then
-                        self:DeleteOnRemove(rope)
-                        end
                         table.insert(self.SpawnedENTS,rope)
                         self.CurrentSpawnedRopes = self.CurrentSpawnedRopes + 1
                         if ( SERVER ) then
@@ -1253,9 +1294,7 @@ function ENT:UseLampTool()
         local hitdata = self:UseToolGun()
 
         local lamp = ents.Create('zeta_lamp') -- We use our own lamp. Aaaagain another new ent 
-        if GetConVar("zetaplayer_removepropsondeath"):GetInt() == 1 then
-        self:DeleteOnRemove(lamp)
-        end
+
         lamp:SetPos(hitdata.HitPos+hitdata.Normal*-50)
         lamp:SetAngles(Angle(0,math.random(-180,180),0))
         lamp.IsZetaProp = true
@@ -1348,9 +1387,7 @@ function ENT:UseThrusterTool()
         local hitdata = self:UseToolGun()
 
         local thruster = ents.Create('zeta_thruster') 
-        if GetConVar("zetaplayer_removepropsondeath"):GetInt() == 1 then
-        self:DeleteOnRemove(thruster)
-        end
+
         thruster.IsZetaProp = true
         thruster:SetAngles(AngleRand(-180,180))
         thruster:SetOwner( self )
@@ -1437,11 +1474,9 @@ function ENT:UseToolGunV2(targetpos,name,convarname,class,repeattimes)
 
         end
 
-        createdEntity.IsZetaProp = true
+        if !IsValid(createdEntity) then return end
 
-        if GetConVar("zetaplayer_removepropsondeath"):GetInt() == 1 then
-            self:DeleteOnRemove(createdEntity)
-        end
+        createdEntity.IsZetaProp = true
 
         table.insert(self.SpawnedENTS,createdEntity)
         self.CurrentSpawnTABLE[name] = self.CurrentSpawnTABLE[name] + 1
@@ -1616,6 +1651,8 @@ function ENT:UseWireButtonTool()
     if !WireLib then return end
 
     self:UseToolGunV2(nil,"Wire Button","wirebutton",function(hitdata)
+
+        if !hitdata then return end
     
         local createdEntity = ents.Create("gmod_wire_button")
         createdEntity:SetPos(hitdata.HitPos+hitdata.Normal*-50)
