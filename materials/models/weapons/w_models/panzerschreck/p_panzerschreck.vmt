@@ -1,0 +1,5 @@
+"VertexLitGeneric"
+{
+	"$basetexture"	"MODELS\WEAPONS\W_MODELS\PANZERSCHRECK\p_panzerschreck"
+	"$alphatest"	"1"
+}
