@@ -1,0 +1,8 @@
+UnlitGeneric
+{
+	"$baseTexture" 		"vgui\zetaplayers\killicons\dods\icon_c96"
+	"$vertexcolor" 		1
+	"$vertexalpha" 		1
+	"$nolod" 			1
+	"$additive"			1 // hldm style!
+}
