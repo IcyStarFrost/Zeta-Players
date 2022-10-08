@@ -2,7 +2,7 @@
 -- Auto Run
 --- Some things that need to be auto ran
 -----------------------------------------------
---
+
 local util = util
 local ents = ents
 local net = net
