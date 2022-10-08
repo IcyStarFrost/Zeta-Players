@@ -1,0 +1,13 @@
+VertexLitGeneric
+{
+$baseTexture "models\v_models\Weapons\pistol/V_Pistol_Reference"
+$bumpmap "effects/flat_normal"
+
+$phong 1
+$phongboost 1
+$phongexponent 20
+$phongfresnelranges "[.8 .16 .16]"
+$BASEMAPLUMINANCEPHONGMASK 1
+$color2 "[ 3 3 3 ]"
+$ambientocclusion 1
+}
