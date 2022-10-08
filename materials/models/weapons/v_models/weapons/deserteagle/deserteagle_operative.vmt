@@ -1,0 +1,14 @@
+VertexLitGeneric
+{
+$baseTexture "models\v_models\Weapons\DesertEagle/deserteagle_operative"
+$phong 1
+$phongboost 6
+
+$phongfresnelranges "[.8 .8 1]"
+$phongexponenttexture "models\v_models\Weapons\DesertEagle/deserteagle_operative_exp"
+$basemapalphaphongmask 1
+$basealphaenvmapmask 1
+$envmap env_cubemap
+
+$phongalbedotint 1
+}
