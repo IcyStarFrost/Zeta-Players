@@ -2013,6 +2013,9 @@ zetaplayer_allowphysgun ]]
 
         panel:Help("-- -- -- -- --")
 
+        panel:Button( "Validate Files", "zetaplayer_validatefiles" )
+        panel:ControlHelp( "This will run a validation process on the list of things below and print out issues in console\n\nProfiles\nCustom Weapons" )
+
         panel:Button('Auto Tweak Navigation Mesh','zetaplayer_autotweaknavmesh',LocalPlayer())
         panel:ControlHelp("This will edit the entire nav mesh to remove useless 2 way connections that confuse the Zetas sometimes. Save the nav mesh after using this.")
         panel:Button('Save Navigation Mesh','zetaplayer_savenavmesh',LocalPlayer())
