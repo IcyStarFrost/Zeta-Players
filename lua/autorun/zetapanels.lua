@@ -5500,7 +5500,15 @@ elseif ( CLIENT ) then
                         end
         
                         function rangedframe:OnClose()
-                            weaponent:Remove()
+                            if IsValid( weaponent ) then
+                                weaponent:Remove()
+                            end
+                        end
+
+                        function weaponpreview:OnClose()
+                            if IsValid( weaponent ) then
+                                weaponent:Remove()
+                            end
                         end
 
                     end
@@ -6525,9 +6533,16 @@ clipRemove | Return true to prevent the subtraction of a clip's ammo
                 end
 
                 function rangedframe:OnClose()
-                    weaponent:Remove()
+                    if IsValid( weaponent ) then
+                        weaponent:Remove()
+                    end
                 end
 
+                function weaponpreview:OnClose()
+                    if IsValid( weaponent ) then
+                        weaponent:Remove()
+                    end
+                end
                 
 
                 local animationtranslation = {
