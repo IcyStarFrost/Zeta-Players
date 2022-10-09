@@ -1510,6 +1510,36 @@ function _ZetaRegisterDefaultWeapons()
     RegisterZetaWeapon('HL1', 'HL1SPAS','HL1 Spas',1)
     RegisterZetaWeapon('HL1', 'HL1357','HL1 357',1)
 
+    if SERVER then -- Just in case
+
+        local TF2Mounted = IsMounted('tf')
+        local HL1Mounted = IsMounted('hl1')
+        local mountableWpns = {
+            ["HL1SMG"] = HL1Mounted,
+            ["HL1GLOCK"] = HL1Mounted,
+            ["HL1SPAS"] = HL1Mounted,
+            ["HL1357"] = HL1Mounted
+        }
+
+        _ZetaWeaponConVars = {}
+        _ZetaExplosiveWeapons = {}
+        
+        for k, v in pairs(_ZetaWeaponDataTable) do
+            if mountableWpns[k] == nil or mountableWpns[k] == true then
+                local cvarName = "zetaplayer_allow"..string.lower(tostring(k))
+                if k == "GRENADE" then cvarName = cvarName.."s" end
+                local cvar = GetConVar(cvarName)
+                if cvar then 
+                    local isLethal = (k == "CAMERA" and GetConVar("zetaplayer_allowcameraaslethalweapon") or v.lethal)
+                    _ZetaWeaponConVars[k] = {cvar, isLethal} 
+                end
+
+                if v.isExplosive then _ZetaExplosiveWeapons[#_ZetaExplosiveWeapons+1] = tostring(k) end
+            end
+        end
+
+    end
+
 
 end
 

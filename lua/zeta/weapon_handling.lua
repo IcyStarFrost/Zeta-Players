@@ -150,33 +150,6 @@ end
   ENT.WrenchCooldown = CurTime()
   ENT.AttackCooldown = CurTime()
 
-  if ( SERVER ) then
-    local TF2Mounted = IsMounted('tf')
-    local HL1Mounted = IsMounted('hl1')
-    local mountableWpns = {
-        ["HL1SMG"] = HL1Mounted,
-        ["HL1GLOCK"] = HL1Mounted,
-        ["HL1SPAS"] = HL1Mounted,
-        ["HL1357"] = HL1Mounted
-    }
-
-    ENT.WeaponConVars = {}
-    ENT.ExplosiveWeapons = {}
-    
-    for k, v in pairs(_ZetaWeaponDataTable) do
-        if mountableWpns[k] == nil or mountableWpns[k] == true then
-            local cvarName = "zetaplayer_allow"..string.lower(tostring(k))
-            if k == "GRENADE" then cvarName = cvarName.."s" end
-            local cvar = GetConVar(cvarName)
-            if cvar then 
-                local isLethal = (k == "CAMERA" and GetConVar("zetaplayer_allowcameraaslethalweapon") or v.lethal)
-                ENT.WeaponConVars[k] = {cvar, isLethal} 
-            end
-
-            if v.isExplosive then ENT.ExplosiveWeapons[#ENT.ExplosiveWeapons+1] = tostring(k) end
-        end
-    end
-end
 
   local entmeta = FindMetaTable("Entity")
 

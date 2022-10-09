@@ -820,7 +820,7 @@ function ENT:RangedAttack()
         keepDistance = 1000
     end
     if !wepData.isExplosive and self.RPGTargets[self:GetEnemy():GetClass()] then
-        local newWep = self.ExplosiveWeapons[zetamath.random(#self.ExplosiveWeapons)]
+        local newWep = _ZetaExplosiveWeapons[zetamath.random(#_ZetaExplosiveWeapons)]
         self:ChangeWeapon(newWep)
         keepDistance = wepData.keepDistance or 300
     end

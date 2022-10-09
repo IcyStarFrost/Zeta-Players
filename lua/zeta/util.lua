@@ -1251,7 +1251,7 @@ zetaplayer_allowphysgun ]]
 
 
 function ENT:CanUseWeapon(weapon)
-  return self.WeaponConVars and weapon and self.WeaponConVars[weapon][1] and self.WeaponConVars[weapon][1]:GetBool() or false
+  return _ZetaWeaponConVars and weapon and _ZetaWeaponConVars[weapon][1] and _ZetaWeaponConVars[weapon][1]:GetBool() or false
 end
 
 function ENT:Disposition( ent )
@@ -1263,7 +1263,7 @@ end
 
 function ENT:GetUseableWeapon()
   local useableWeapons = {'NONE'}
-  for k, v in pairs(self.WeaponConVars) do
+  for k, v in pairs(_ZetaWeaponConVars) do
       if v[1]:GetBool() == true then useableWeapons[#useableWeapons+1] = k end
   end
   if self.FavouriteWeapon and self:CanUseWeapon(self.FavouriteWeapon) then
@@ -1277,10 +1277,10 @@ end
 
 function ENT:GetUseableLethalWeapon()
   local useableWeapons = {}
-  for k, v in pairs(self.WeaponConVars) do
+  for k, v in pairs(_ZetaWeaponConVars) do
       if v[1]:GetBool() == true and (!isbool(v[2]) and v[2]:GetBool() or v[2] == true) then useableWeapons[#useableWeapons+1] = k end
   end
-  if self.FavouriteWeapon and self:CanUseWeapon(self.FavouriteWeapon) and self.WeaponConVars[self.FavouriteWeapon][2] then
+  if self.FavouriteWeapon and self:CanUseWeapon(self.FavouriteWeapon) and _ZetaWeaponConVars[self.FavouriteWeapon][2] then
     for i = 1, #useableWeapons do useableWeapons[#useableWeapons+1] = self.FavouriteWeapon end
   end
   if !useableWeapons or #useableWeapons <= 0 then useableWeapons = {"NONE"} end
