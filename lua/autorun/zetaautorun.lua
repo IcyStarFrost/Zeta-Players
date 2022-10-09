@@ -704,7 +704,78 @@ if ( SERVER ) then
         print( "Weapon Validation Done" )
 
 
-        print( hasproblem and "Validation finished. One or more issues were found" or "Validation successful! No problems found" )
+
+        print( "\n\n--- Data Files Validator ---\n\n" )
+
+        local textdataok = pcall( function() util.JSONToTable(file.Read("zetaplayerdata/textchatdata.json","DATA")) end )
+
+        if !textdataok then
+            hasproblem = true
+
+            print( "Data File Validator Warning: Text Chat Data failed to open/validate! Consider using console command zetaplayer_resettextdata to reset it" )
+        end
+
+        local mediadataok = pcall( function() util.JSONToTable(file.Read("zetaplayerdata/mediaplayerdata.json","DATA")) end )
+
+        if !mediadataok then
+            hasproblem = true
+
+            print( "Data File Validator Warning: Media Data failed to open/validate! Consider using console command zetaplayer_reseturllist to reset it" )
+        end
+    
+        local matsok = pcall( function() util.JSONToTable(file.Read('zetaplayerdata/materials.json','DATA')) end )
+
+        if !matsok then
+            hasproblem = true
+
+            print( "Data File Validator Warning: Material Data failed to open/validate! Consider using console command zetaplayer_resetmateraillist to reset it" )
+        end
+    
+        local propsok = pcall( function() util.JSONToTable(file.Read('zetaplayerdata/props.json','DATA')) end )
+
+        if !propsok then
+            hasproblem = true
+
+            print( "Data File Validator Warning: Prop Data failed to open/validate! Consider using console command zetaplayer_resetproplist to reset it" )
+        end
+    
+        local npcsok = pcall( function() util.JSONToTable(file.Read('zetaplayerdata/npcs.json','DATA')) end )
+
+        if !npcsok then
+            hasproblem = true
+
+            print( "Data File Validator Warning: NPC Data failed to open/validate! Consider using console command zetaplayer_resetnpclist to reset it" )
+        end
+    
+        local entsok = pcall( function() util.JSONToTable(file.Read('zetaplayerdata/ents.json','DATA')) end )
+
+        if !entsok then
+            hasproblem = true
+
+            print( "Data File Validator Warning: Entity Data failed to open/validate! Consider using console command zetaplayer_resetentitylist to reset it" )
+        end
+    
+        local namesok = pcall( function() util.JSONToTable(file.Read('zetaplayerdata/names.json','DATA')) end )
+
+        if !namesok then
+            hasproblem = true
+
+            print( "Data File Validator Warning: Name Data failed to open/validate! Consider using console command zetaplayer_resetnamelist to reset it" )
+        end
+    
+        local zetastatsok = pcall( function() util.JSONToTable(file.Read("zetaplayerdata/zetastats.json")) end )
+
+        if !zetastatsok then
+            hasproblem = true
+
+            print( "Data File Validator Warning: Zeta Stats failed to open/validate! Consider using console command zetaplayer_resetzetastats to reset it" )
+        end
+
+
+        print( "Data File Validation Done" )
+
+
+        print( hasproblem and "\nValidation finished. One or more issues were found" or "\nValidation successful! No problems found" )
 
     end
 
