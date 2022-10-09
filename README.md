@@ -4,7 +4,7 @@ What are the Zeta Players? Zeta Players are nextbots designed to play sandbox. T
 
 ![alt text](https://cdn.discordapp.com/attachments/696733081763315803/999833848223383612/20220303231739_1.jpg)
 
-This repo is for making any contributions easier to manage and add
+This repo is dedicated to making any contributions easier to manage and add. At first I was very hesitent to allowing people to do this but you can now fork off the original addon's code and assets and add on to them to your liking or by Pull Requesting fixes or additions I approve of
 
 
 See the original addon page: https://steamcommunity.com/sharedfiles/filedetails/?id=2773405248
