@@ -238,7 +238,7 @@ function ENT:ChooseNextIdleAction()
             moveToPos = self:FindRandomPosition(GetConVar("zetaplayer_wanderdistance"):GetInt()) 
         end
 
-        if zetamath.random(6) == 1 and (!self.IsAdmin and GetConVar("zetaplayer_allownoclip"):GetBool() or GetConVar("zetaplayer_allowadminnoclip"):GetBool()) then
+        if zetamath.random(6) == 1 and (!self.IsAdmin and GetConVar("zetaplayer_allownoclip"):GetBool() or self.IsAdmin and GetConVar("zetaplayer_allowadminnoclip"):GetBool()) then
             self:ToggleNoclip(!self:IsInNoclip())
         end
         if self:IsInNoclip() then
