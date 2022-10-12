@@ -2246,8 +2246,12 @@ _ZetaWeaponDataTable = {
     
                 zeta:CreateThinkFunction("PAIG_HolsterSoundHack", 0, 0, function()
                     if zeta.Weapon == "IMPACTGRENADE" or !wep.PAIG_LoopSound and !wep.PAIG_LoopIntroSound then return end
-                    wep.PAIG_LoopSound:Stop() 
-                    wep.PAIG_LoopIntroSound:Stop() 
+                    if wep.PAIG_LoopSound then
+                        wep.PAIG_LoopSound:Stop() 
+                    end
+                    if wep.PAIG_LoopIntroSound then
+                        wep.PAIG_LoopIntroSound:Stop() 
+                    end
                     wep.PAIG_LoopSound = nil
                     wep.PAIG_LoopIntroSound = nil
                     return "stop"
