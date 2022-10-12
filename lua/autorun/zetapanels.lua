@@ -5218,7 +5218,7 @@ elseif ( CLIENT ) then
                     shellnames:AddChoice( "ShotgunShellEject" )
 
     
-                    if savedweapondata and savedweapondata[ 2 ].shellData then
+                    if savedweapondata and savedweapondata[ 2 ].shellData and savedweapondata[ 2 ].shellData.name then
                         local enum = shelltranslation[ savedweapondata[ 2 ].shellData.name ]
                         recoilanimations:ChooseOptionID( enum )
                         shellname = enum
