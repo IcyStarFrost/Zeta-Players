@@ -1348,202 +1348,7 @@ function RegisterZetaWeapon( category, name, prettyName, defaultvar )
 
 end
 
-if SERVER then
-    net.Receive( "zetaweaponcreator_updateweapons", function( len, ply ) 
 
-        zetaWeaponConfigTable = {
-            ['GMOD'] = {},
-            ['CSS'] = {},
-            ['TF2'] = {},
-            ["HL1"] = {},
-            ['DOD'] = {},
-            ['L4D'] = {},
-            ["CUSTOM"] = {},
-            ["ADDON"] = {},
-            ["MP1"] = {}
-        }
-    
-        include("zeta/weapon_tables.lua")
-
-        _ZetaRegisterDefaultWeapons()
-    
-        ply:ConCommand( "spawnmenu_reload" )
-    end )
-end
-
-include('zeta/weapon_tables.lua')
-
-function _ZetaRegisterDefaultWeapons()
-
-    RegisterZetaWeapon('L4D', 'L4D_PISTOL_P220','[L4D2] SIG Sauer P220',1)
-    RegisterZetaWeapon('L4D', 'L4D_PISTOL_GLOCK26','[L4D2] Glock 26',1)
-    RegisterZetaWeapon('L4D', 'L4D_PISTOL_MAGNUM','[L4D2] Magnum',1)
-    RegisterZetaWeapon('L4D', 'L4D_SMG','[L4D2] Submachine Gun',1)
-    RegisterZetaWeapon('L4D', 'L4D_SMG_SILENCED','[L4D2] Silenced Submachine Gun',1)
-    RegisterZetaWeapon('L4D', 'L4D_SHOTGUN_PUMP','[L4D2] Pump Shotgun',1)
-    RegisterZetaWeapon('L4D', 'L4D_SHOTGUN_CHROME','[L4D2] Chrome Shotgun',1)
-    RegisterZetaWeapon('L4D', 'L4D_SHOTGUN_AUTOSHOT','[L4D2] Tactical Shotgun',1)
-    RegisterZetaWeapon('L4D', 'L4D_SHOTGUN_SPAS12','[L4D2] Combat Shotgun',1)
-    RegisterZetaWeapon('L4D', 'L4D_RIFLE_M16','[L4D2] M-16 Assault Rifle',1)
-    RegisterZetaWeapon('L4D', 'L4D_RIFLE_AK47','[L4D2] AK47',1)
-    RegisterZetaWeapon('L4D', 'L4D_RIFLE_SCARL','[L4D2] Combat Rifle',1)
-    RegisterZetaWeapon('L4D', 'L4D_RIFLE_RUGER14','[L4D2] Hunting Rifle',1)
-    RegisterZetaWeapon('L4D', 'L4D_RIFLE_MILITARYS','[L4D2] Military Rifle',1)
-    RegisterZetaWeapon('L4D', 'L4D_PISTOL_M1911','[L4D1] M1911 Pistol',1)
-    RegisterZetaWeapon('L4D', 'L4D_SPECIAL_CHAINSAW','[L4D2] Chainsaw', 1)
-
-    -- Left 4 Dead 2 Melee Weapons
-    RegisterZetaWeapon('L4D', 'L4D_MELEE_FIREAXE','[L4D2] Fireaxe',1)
-    RegisterZetaWeapon('L4D', 'L4D_MELEE_GUITAR','[L4D2] Guitar',1)
-    RegisterZetaWeapon('L4D', 'L4D_MELEE_GOLFCLUB','[L4D2] Golf Club',1)
-    RegisterZetaWeapon('L4D', 'L4D_MELEE_TONFA','[L4D2] Nightstick',1)
-
-    -- Left 4 Dead 2 Special Weapons
-    RegisterZetaWeapon('L4D', 'L4D_SPECIAL_GL_DELAYED','[L4D2] Grenade Launcher (Non-Impact)',1)
-    RegisterZetaWeapon('L4D', 'L4D_SPECIAL_GL_IMPACT','[L4D2] Grenade Launcher (Impact)',1)
-    RegisterZetaWeapon('L4D', 'L4D_SPECIAL_M60','[L4D2] M60',1)
-
-
-    -- Axis
-    RegisterZetaWeapon('DOD', 'DODS_AXIS_SPADE','German Entrenching Spade Shovel',1)
-    RegisterZetaWeapon('DOD', 'DODS_AXIS_P38','Walther P38',1)
-    RegisterZetaWeapon('DOD', 'DODS_AXIS_C96','Mauser C96',1)
-    RegisterZetaWeapon('DOD', 'DODS_AXIS_MP40','Maschinenpistole 40',1)
-    RegisterZetaWeapon('DOD', 'DODS_AXIS_KAR98k','Karabiner 98k',1)
-    RegisterZetaWeapon('DOD', 'DODS_AXIS_KAR98KSNIPER','Karabiner 98k Sniper',1)
-    RegisterZetaWeapon('DOD', 'DODS_AXIS_MG42','Maschinengewehr 42',1)
-    RegisterZetaWeapon('DOD', 'DODS_AXIS_PANZERSCHRECK','Panzerschreck 54',1)
-    RegisterZetaWeapon('DOD', 'DODS_AXIS_MP44','Sturmgewehr 44',1)
-
-    
-    -- Allies
-    RegisterZetaWeapon('DOD', 'DODS_US_AMERIKNIFE','M1 Trench Knife',1)
-    RegisterZetaWeapon('DOD', 'DODS_US_COLT45','Colt .45',1)
-    RegisterZetaWeapon('DOD', 'DODS_US_THOMPSON','M1 Thompson',1)
-    RegisterZetaWeapon('DOD', 'DODS_US_GARAND','M1 Garand',1)
-    RegisterZetaWeapon('DOD', 'DODS_US_M1CARBINE','M1 Carbine',1)
-    RegisterZetaWeapon('DOD', 'DODS_US_BAR','M1918 Browning Auto Rifle',1)
-    RegisterZetaWeapon('DOD', 'DODS_US_SPRINGFIELD','Springfield',1)
-    RegisterZetaWeapon('DOD', 'DODS_US_30CAL','M1919 Browning Machine Gun',1)
-    RegisterZetaWeapon('DOD', 'DODS_US_BAZOOKA','M1 Bazooka',1)
-
-
-
-    RegisterZetaWeapon('CSS', 'GLOCK_AUTO',"Glock 18 Auto",1)
-    RegisterZetaWeapon('CSS', 'GLOCK_SEMI',"Glock 18 Semi-Auto",1)
-    RegisterZetaWeapon('CSS', 'UMP45','UMP-45',1)
-    RegisterZetaWeapon('CSS', 'FAMAS','Famas',1)
-    RegisterZetaWeapon('CSS', 'AUG','AUG',1)
-    RegisterZetaWeapon('CSS', 'SG552','SG552',1)
-    RegisterZetaWeapon('CSS', 'P90','P90',1)
-    RegisterZetaWeapon('CSS', 'MAC10','Mac-10',1)
-    RegisterZetaWeapon('CSS', 'SCOUT', 'Steyr Scout',1)
-    RegisterZetaWeapon('CSS', 'XM1014','XM1014',1)
-    RegisterZetaWeapon('CSS', 'FIVESEVEN',"Five-Seven",1)
-    RegisterZetaWeapon('CSS', 'USPSILENCED',"USP-45",1)
-    RegisterZetaWeapon('CSS', 'M3',"M3 Super 90",1)
-    RegisterZetaWeapon('CSS', 'GALIL',"IMI Galil",1)
-    RegisterZetaWeapon('CSS', 'TMP',"TMP",1)
-    RegisterZetaWeapon('CSS', 'DUALELITES',"Dual Berettas",1)
-    RegisterZetaWeapon("CSS", "FLASHGRENADE", "Flash Grenade", 1)
-    RegisterZetaWeapon("CSS", "SMOKEGRENADE", "Smoke Grenade", 1)
-
-
-    RegisterZetaWeapon('GMOD', 'HACKSMONITORS','Anti Hacks Monitors',1)
-    RegisterZetaWeapon('GMOD', 'IMPACTGRENADE','Punch Activated Impact Grenade',1)
-    RegisterZetaWeapon('GMOD', 'SHOVEL','Shovel',1)
-    RegisterZetaWeapon('GMOD', 'VOLVER','Volver',0)
-    RegisterZetaWeapon('GMOD', 'BUGBAIT','Bugbait',1)
-    RegisterZetaWeapon('GMOD', 'PAN','Frying Pan',1)
-    RegisterZetaWeapon('GMOD', 'MEATHOOK','Meat Hook',1)
-    RegisterZetaWeapon('GMOD', 'C4','C4 Plastic Explosive',0)
-    RegisterZetaWeapon('GMOD', 'LARGEGRENADE','Comically Large Grenade',1)
-    RegisterZetaWeapon('GMOD', 'KATANA','Katana',1)
-    RegisterZetaWeapon('GMOD', 'ALYXGUN','Alyx Gun',1)
-    RegisterZetaWeapon('GMOD', 'ANNABELLE','Annabelle',1)
-    RegisterZetaWeapon('GMOD', 'WOODENCHAIR','Wooden Chair',1)
-    RegisterZetaWeapon('GMOD', 'THEKLEINER','Kleiner',1)
-    RegisterZetaWeapon('GMOD', 'LARGESIGN','Large Sign Post',1)
-    RegisterZetaWeapon('GMOD', 'CARDOOR','Car Door',1)
-    RegisterZetaWeapon('GMOD', 'ZOMBIECLAWS','Zombie Claws',1)
-
-
-    if istable(rb655_gForcePowers) then
-        RegisterZetaWeapon('GMOD', 'LIGHTSABER', 'Lightsaber', 1)
-    end
-
-    if istable(mp1_lib) then
-        RegisterZetaWeapon("MP1", "MP1_LEADPIPE", "[MP1] Lead Pipe", 1)
-        RegisterZetaWeapon("MP1", "MP1_BASEBALLBAT", "[MP1] Baseball Bat", 1)
-        RegisterZetaWeapon("MP1", "MP1_BERETTA", "[MP1] Beretta", 1)
-        RegisterZetaWeapon("MP1", "MP1_DUALBERETTAS", "[MP1] Dual Berettas", 1)
-        RegisterZetaWeapon("MP1", "MP1_DESERTEAGLE", "[MP1] Desert Eagle", 1)
-        RegisterZetaWeapon("MP1", "MP1_INGRAM", "[MP1] Ingram Mac-10", 1)
-        RegisterZetaWeapon("MP1", "MP1_DUALINGRAMS", "[MP1] Dual Ingrams", 1)
-        RegisterZetaWeapon("MP1", "MP1_MP5", "[MP1] MP5", 1)
-        RegisterZetaWeapon("MP1", "MP1_SAWEDOFFSHOTGUN", "[MP1] Sawed-Off Shotgun", 1)
-        RegisterZetaWeapon("MP1", "MP1_PUMPSHOTGUN", "[MP1] Pump-Action Shotgun", 1)
-        RegisterZetaWeapon("MP1", "MP1_COLTCOMMANDO", "[MP1] Colt Commando", 1)
-        RegisterZetaWeapon("MP1", "MP1_JACKHAMMER", "[MP1] Jackhammer", 1)
-        RegisterZetaWeapon("MP1", "MP1_SNIPERRIFLE", "[MP1] Sniper Rifle", 1)
-        RegisterZetaWeapon("MP1", "MP1_M79", "[MP1] M79", 1)
-        RegisterZetaWeapon("MP1", "MP1_COCKTAIL", "[MP1] Molotov Cocktail", 1)
-        RegisterZetaWeapon("MP1", "MP1_GRENADE", "[MP1] Grenade", 1)
-    end
-
-    if file.Exists("weapons/weapon_nyangun.lua", "LUA") then
-        RegisterZetaWeapon('GMOD', 'NYANGUN', 'Nyan Gun', 1)
-    end
-
-
-
-
-    RegisterZetaWeapon('TF2', 'BAT','Bat',1)
-    RegisterZetaWeapon('TF2', 'SNIPERSMG','TF2 SMG',1)
-    RegisterZetaWeapon('TF2', 'FORCEOFNATURE','Force of Nature',1)
-    RegisterZetaWeapon('TF2', 'GRENADELAUNCHER','Grenade Launcher',1)
-    RegisterZetaWeapon('TF2', 'FLAMETHROWER','Flamethrower',1)
-    RegisterZetaWeapon("TF2", "TF2_MINIGUN", "Minigun", 1)
-
-    RegisterZetaWeapon('HL1', 'HL1SMG','HL1 MP5',1)
-    RegisterZetaWeapon('HL1', 'HL1GLOCK','HL1 Glock',1)
-    RegisterZetaWeapon('HL1', 'HL1SPAS','HL1 Spas',1)
-    RegisterZetaWeapon('HL1', 'HL1357','HL1 357',1)
-
-    if SERVER then -- Just in case
-
-        local TF2Mounted = IsMounted('tf')
-        local HL1Mounted = IsMounted('hl1')
-        local mountableWpns = {
-            ["HL1SMG"] = HL1Mounted,
-            ["HL1GLOCK"] = HL1Mounted,
-            ["HL1SPAS"] = HL1Mounted,
-            ["HL1357"] = HL1Mounted
-        }
-
-        _ZetaWeaponConVars = {}
-        _ZetaExplosiveWeapons = {}
-        
-        for k, v in pairs(_ZetaWeaponDataTable) do
-            if mountableWpns[k] == nil or mountableWpns[k] == true then
-                local cvarName = "zetaplayer_allow"..string.lower(tostring(k))
-                if k == "GRENADE" then cvarName = cvarName.."s" end
-                local cvar = GetConVar(cvarName)
-                if cvar then 
-                    local isLethal = (k == "CAMERA" and GetConVar("zetaplayer_allowcameraaslethalweapon") or v.lethal)
-                    _ZetaWeaponConVars[k] = {cvar, isLethal} 
-                end
-
-                if v.isExplosive then _ZetaExplosiveWeapons[#_ZetaExplosiveWeapons+1] = tostring(k) end
-            end
-        end
-
-    end
-
-
-end
-
-_ZetaRegisterDefaultWeapons()
 
 -- When adding convars, We now should use this for it to add to the preset system
 local function AddZetaConvar(cvarname,save,value,helptext,min,max)
@@ -2080,6 +1885,228 @@ AddZetaConvar("zetaplayer_textmixing", true, 0, "If text should be modified by s
     AddZetaConvar('zetaplayer_debug_displayspawntime', false, 0, "If the time it takes for a zeta to initialize and start their ai", 0, 1)
     AddZetaConvar('zetaplayer_debug_displaypathfindingpaths', false, 0, "If paths Zetas use for pathfinding should be rendered", 0, 1)
 -- 
+
+
+include('zeta/weapon_tables.lua')
+
+if SERVER then
+    net.Receive( "zetaweaponcreator_updateweapons", function( len, ply ) 
+
+        zetaWeaponConfigTable = {
+            ['GMOD'] = {},
+            ['CSS'] = {},
+            ['TF2'] = {},
+            ["HL1"] = {},
+            ['DOD'] = {},
+            ['L4D'] = {},
+            ["CUSTOM"] = {},
+            ["ADDON"] = {},
+            ["MP1"] = {}
+        }
+    
+        _ZetaRefreshWeaponTable()
+
+        _ZetaRegisterDefaultWeapons()
+
+        local TF2Mounted = IsMounted('tf')
+        local HL1Mounted = IsMounted('hl1')
+        local mountableWpns = {
+            ["HL1SMG"] = HL1Mounted,
+            ["HL1GLOCK"] = HL1Mounted,
+            ["HL1SPAS"] = HL1Mounted,
+            ["HL1357"] = HL1Mounted
+        }
+
+        _ZetaWeaponConVars = {}
+        _ZetaExplosiveWeapons = {}
+        
+        for k, v in pairs(_ZetaWeaponDataTable) do
+            if mountableWpns[k] == nil or mountableWpns[k] == true then
+                local cvarName = "zetaplayer_allow"..string.lower(tostring(k))
+                if k == "GRENADE" then cvarName = cvarName.."s" end
+                local cvar = GetConVar(cvarName)
+                if cvar then 
+                    local isLethal = (k == "CAMERA" and GetConVar("zetaplayer_allowcameraaslethalweapon") or v.lethal)
+                    _ZetaWeaponConVars[k] = {cvar, isLethal} 
+                end
+
+                if v.isExplosive then _ZetaExplosiveWeapons[#_ZetaExplosiveWeapons+1] = tostring(k) end
+            end
+        end
+    
+        ply:ConCommand( "spawnmenu_reload" )
+    end )
+end
+
+
+
+function _ZetaRegisterDefaultWeapons()
+
+    RegisterZetaWeapon('L4D', 'L4D_PISTOL_P220','[L4D2] SIG Sauer P220',1)
+    RegisterZetaWeapon('L4D', 'L4D_PISTOL_GLOCK26','[L4D2] Glock 26',1)
+    RegisterZetaWeapon('L4D', 'L4D_PISTOL_MAGNUM','[L4D2] Magnum',1)
+    RegisterZetaWeapon('L4D', 'L4D_SMG','[L4D2] Submachine Gun',1)
+    RegisterZetaWeapon('L4D', 'L4D_SMG_SILENCED','[L4D2] Silenced Submachine Gun',1)
+    RegisterZetaWeapon('L4D', 'L4D_SHOTGUN_PUMP','[L4D2] Pump Shotgun',1)
+    RegisterZetaWeapon('L4D', 'L4D_SHOTGUN_CHROME','[L4D2] Chrome Shotgun',1)
+    RegisterZetaWeapon('L4D', 'L4D_SHOTGUN_AUTOSHOT','[L4D2] Tactical Shotgun',1)
+    RegisterZetaWeapon('L4D', 'L4D_SHOTGUN_SPAS12','[L4D2] Combat Shotgun',1)
+    RegisterZetaWeapon('L4D', 'L4D_RIFLE_M16','[L4D2] M-16 Assault Rifle',1)
+    RegisterZetaWeapon('L4D', 'L4D_RIFLE_AK47','[L4D2] AK47',1)
+    RegisterZetaWeapon('L4D', 'L4D_RIFLE_SCARL','[L4D2] Combat Rifle',1)
+    RegisterZetaWeapon('L4D', 'L4D_RIFLE_RUGER14','[L4D2] Hunting Rifle',1)
+    RegisterZetaWeapon('L4D', 'L4D_RIFLE_MILITARYS','[L4D2] Military Rifle',1)
+    RegisterZetaWeapon('L4D', 'L4D_PISTOL_M1911','[L4D1] M1911 Pistol',1)
+    RegisterZetaWeapon('L4D', 'L4D_SPECIAL_CHAINSAW','[L4D2] Chainsaw', 1)
+
+    -- Left 4 Dead 2 Melee Weapons
+    RegisterZetaWeapon('L4D', 'L4D_MELEE_FIREAXE','[L4D2] Fireaxe',1)
+    RegisterZetaWeapon('L4D', 'L4D_MELEE_GUITAR','[L4D2] Guitar',1)
+    RegisterZetaWeapon('L4D', 'L4D_MELEE_GOLFCLUB','[L4D2] Golf Club',1)
+    RegisterZetaWeapon('L4D', 'L4D_MELEE_TONFA','[L4D2] Nightstick',1)
+
+    -- Left 4 Dead 2 Special Weapons
+    RegisterZetaWeapon('L4D', 'L4D_SPECIAL_GL_DELAYED','[L4D2] Grenade Launcher (Non-Impact)',1)
+    RegisterZetaWeapon('L4D', 'L4D_SPECIAL_GL_IMPACT','[L4D2] Grenade Launcher (Impact)',1)
+    RegisterZetaWeapon('L4D', 'L4D_SPECIAL_M60','[L4D2] M60',1)
+
+
+    -- Axis
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_SPADE','German Entrenching Spade Shovel',1)
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_P38','Walther P38',1)
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_C96','Mauser C96',1)
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_MP40','Maschinenpistole 40',1)
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_KAR98k','Karabiner 98k',1)
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_KAR98KSNIPER','Karabiner 98k Sniper',1)
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_MG42','Maschinengewehr 42',1)
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_PANZERSCHRECK','Panzerschreck 54',1)
+    RegisterZetaWeapon('DOD', 'DODS_AXIS_MP44','Sturmgewehr 44',1)
+
+    
+    -- Allies
+    RegisterZetaWeapon('DOD', 'DODS_US_AMERIKNIFE','M1 Trench Knife',1)
+    RegisterZetaWeapon('DOD', 'DODS_US_COLT45','Colt .45',1)
+    RegisterZetaWeapon('DOD', 'DODS_US_THOMPSON','M1 Thompson',1)
+    RegisterZetaWeapon('DOD', 'DODS_US_GARAND','M1 Garand',1)
+    RegisterZetaWeapon('DOD', 'DODS_US_M1CARBINE','M1 Carbine',1)
+    RegisterZetaWeapon('DOD', 'DODS_US_BAR','M1918 Browning Auto Rifle',1)
+    RegisterZetaWeapon('DOD', 'DODS_US_SPRINGFIELD','Springfield',1)
+    RegisterZetaWeapon('DOD', 'DODS_US_30CAL','M1919 Browning Machine Gun',1)
+    RegisterZetaWeapon('DOD', 'DODS_US_BAZOOKA','M1 Bazooka',1)
+
+
+
+    RegisterZetaWeapon('CSS', 'GLOCK_AUTO',"Glock 18 Auto",1)
+    RegisterZetaWeapon('CSS', 'GLOCK_SEMI',"Glock 18 Semi-Auto",1)
+    RegisterZetaWeapon('CSS', 'UMP45','UMP-45',1)
+    RegisterZetaWeapon('CSS', 'FAMAS','Famas',1)
+    RegisterZetaWeapon('CSS', 'AUG','AUG',1)
+    RegisterZetaWeapon('CSS', 'SG552','SG552',1)
+    RegisterZetaWeapon('CSS', 'P90','P90',1)
+    RegisterZetaWeapon('CSS', 'MAC10','Mac-10',1)
+    RegisterZetaWeapon('CSS', 'SCOUT', 'Steyr Scout',1)
+    RegisterZetaWeapon('CSS', 'XM1014','XM1014',1)
+    RegisterZetaWeapon('CSS', 'FIVESEVEN',"Five-Seven",1)
+    RegisterZetaWeapon('CSS', 'USPSILENCED',"USP-45",1)
+    RegisterZetaWeapon('CSS', 'M3',"M3 Super 90",1)
+    RegisterZetaWeapon('CSS', 'GALIL',"IMI Galil",1)
+    RegisterZetaWeapon('CSS', 'TMP',"TMP",1)
+    RegisterZetaWeapon('CSS', 'DUALELITES',"Dual Berettas",1)
+    RegisterZetaWeapon("CSS", "FLASHGRENADE", "Flash Grenade", 1)
+    RegisterZetaWeapon("CSS", "SMOKEGRENADE", "Smoke Grenade", 1)
+
+
+    RegisterZetaWeapon('GMOD', 'HACKSMONITORS','Anti Hacks Monitors',1)
+    RegisterZetaWeapon('GMOD', 'IMPACTGRENADE','Punch Activated Impact Grenade',1)
+    RegisterZetaWeapon('GMOD', 'SHOVEL','Shovel',1)
+    RegisterZetaWeapon('GMOD', 'VOLVER','Volver',0)
+    RegisterZetaWeapon('GMOD', 'BUGBAIT','Bugbait',1)
+    RegisterZetaWeapon('GMOD', 'PAN','Frying Pan',1)
+    RegisterZetaWeapon('GMOD', 'MEATHOOK','Meat Hook',1)
+    RegisterZetaWeapon('GMOD', 'C4','C4 Plastic Explosive',0)
+    RegisterZetaWeapon('GMOD', 'LARGEGRENADE','Comically Large Grenade',1)
+    RegisterZetaWeapon('GMOD', 'KATANA','Katana',1)
+    RegisterZetaWeapon('GMOD', 'ALYXGUN','Alyx Gun',1)
+    RegisterZetaWeapon('GMOD', 'ANNABELLE','Annabelle',1)
+    RegisterZetaWeapon('GMOD', 'WOODENCHAIR','Wooden Chair',1)
+    RegisterZetaWeapon('GMOD', 'THEKLEINER','Kleiner',1)
+    RegisterZetaWeapon('GMOD', 'LARGESIGN','Large Sign Post',1)
+    RegisterZetaWeapon('GMOD', 'CARDOOR','Car Door',1)
+    RegisterZetaWeapon('GMOD', 'ZOMBIECLAWS','Zombie Claws',1)
+
+
+    if istable(rb655_gForcePowers) then
+        RegisterZetaWeapon('GMOD', 'LIGHTSABER', 'Lightsaber', 1)
+    end
+
+    if istable(mp1_lib) then
+        RegisterZetaWeapon("MP1", "MP1_LEADPIPE", "[MP1] Lead Pipe", 1)
+        RegisterZetaWeapon("MP1", "MP1_BASEBALLBAT", "[MP1] Baseball Bat", 1)
+        RegisterZetaWeapon("MP1", "MP1_BERETTA", "[MP1] Beretta", 1)
+        RegisterZetaWeapon("MP1", "MP1_DUALBERETTAS", "[MP1] Dual Berettas", 1)
+        RegisterZetaWeapon("MP1", "MP1_DESERTEAGLE", "[MP1] Desert Eagle", 1)
+        RegisterZetaWeapon("MP1", "MP1_INGRAM", "[MP1] Ingram Mac-10", 1)
+        RegisterZetaWeapon("MP1", "MP1_DUALINGRAMS", "[MP1] Dual Ingrams", 1)
+        RegisterZetaWeapon("MP1", "MP1_MP5", "[MP1] MP5", 1)
+        RegisterZetaWeapon("MP1", "MP1_SAWEDOFFSHOTGUN", "[MP1] Sawed-Off Shotgun", 1)
+        RegisterZetaWeapon("MP1", "MP1_PUMPSHOTGUN", "[MP1] Pump-Action Shotgun", 1)
+        RegisterZetaWeapon("MP1", "MP1_COLTCOMMANDO", "[MP1] Colt Commando", 1)
+        RegisterZetaWeapon("MP1", "MP1_JACKHAMMER", "[MP1] Jackhammer", 1)
+        RegisterZetaWeapon("MP1", "MP1_SNIPERRIFLE", "[MP1] Sniper Rifle", 1)
+        RegisterZetaWeapon("MP1", "MP1_M79", "[MP1] M79", 1)
+        RegisterZetaWeapon("MP1", "MP1_COCKTAIL", "[MP1] Molotov Cocktail", 1)
+        RegisterZetaWeapon("MP1", "MP1_GRENADE", "[MP1] Grenade", 1)
+    end
+
+    if file.Exists("weapons/weapon_nyangun.lua", "LUA") then
+        RegisterZetaWeapon('GMOD', 'NYANGUN', 'Nyan Gun', 1)
+    end
+
+
+
+
+    RegisterZetaWeapon('TF2', 'BAT','Bat',1)
+    RegisterZetaWeapon('TF2', 'SNIPERSMG','TF2 SMG',1)
+    RegisterZetaWeapon('TF2', 'FORCEOFNATURE','Force of Nature',1)
+    RegisterZetaWeapon('TF2', 'GRENADELAUNCHER','Grenade Launcher',1)
+    RegisterZetaWeapon('TF2', 'FLAMETHROWER','Flamethrower',1)
+    RegisterZetaWeapon("TF2", "TF2_MINIGUN", "Minigun", 1)
+
+    RegisterZetaWeapon('HL1', 'HL1SMG','HL1 MP5',1)
+    RegisterZetaWeapon('HL1', 'HL1GLOCK','HL1 Glock',1)
+    RegisterZetaWeapon('HL1', 'HL1SPAS','HL1 Spas',1)
+    RegisterZetaWeapon('HL1', 'HL1357','HL1 357',1)
+
+
+end
+
+_ZetaRegisterDefaultWeapons()
+
+local TF2Mounted = IsMounted('tf')
+local HL1Mounted = IsMounted('hl1')
+local mountableWpns = {
+    ["HL1SMG"] = HL1Mounted,
+    ["HL1GLOCK"] = HL1Mounted,
+    ["HL1SPAS"] = HL1Mounted,
+    ["HL1357"] = HL1Mounted
+}
+
+_ZetaWeaponConVars = {}
+_ZetaExplosiveWeapons = {}
+
+for k, v in pairs(_ZetaWeaponDataTable) do
+    if mountableWpns[k] == nil or mountableWpns[k] == true then
+        local cvarName = "zetaplayer_allow"..string.lower(tostring(k))
+        if k == "GRENADE" then cvarName = cvarName.."s" end
+        local cvar = GetConVar(cvarName)
+        if cvar then 
+            local isLethal = (k == "CAMERA" and GetConVar("zetaplayer_allowcameraaslethalweapon") or v.lethal)
+            _ZetaWeaponConVars[k] = {cvar, isLethal} 
+        end
+
+        if v.isExplosive then _ZetaExplosiveWeapons[#_ZetaExplosiveWeapons+1] = tostring(k) end
+    end
+end
 
 
 
