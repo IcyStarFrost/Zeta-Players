@@ -445,8 +445,6 @@ if SERVER then -- Player admin commands will be handled here
 
         if split[1] == ",ignite" then
             if split[2]==nil then ply:PrintMessage(HUD_PRINTTALK,split[1].." is missing a target") return "" end
-            print(split[3], isnumber(split[3]))
-            if split[3] and !isnumber(split[3]) then ply:PrintMessage(HUD_PRINTTALK,split[3].." is not a correct number") return "" end
             local name = split[2]
             local length = split[3] or 5
             local zeta = FindZetaByName(name)
