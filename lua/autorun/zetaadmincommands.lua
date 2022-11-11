@@ -133,7 +133,7 @@ if SERVER then -- Player admin commands will be handled here
         if GetConVar("zetaplayer_adminprintecho"):GetBool() then
             local name = zeta.zetaname
             if reason == "" or !reason then
-                reason = "No reason"
+                reason = "No reason provided."
             end
             net.Start("zeta_sendcoloredtext",true)
             net.WriteString(util.TableToJSON({Color(0,255,0),caller:GetName(),Color(130,164,192)," kicked ",Color(0,255,0),name," ",Color(130,164,192),"(",Color(0,255,0),reason,Color(130,164,192),")"}))
@@ -150,6 +150,9 @@ if SERVER then -- Player admin commands will be handled here
 
     local function PlayerBanZeta(zeta,caller,reason,time)
         local length = time or 60
+        if reason == "" or !reason then
+            reason = "No reason provided."
+        end
         if GetConVar("zetaplayer_adminprintecho"):GetBool() then
             local name = zeta.zetaname
 
@@ -174,8 +177,8 @@ if SERVER then -- Player admin commands will be handled here
 
 
     local function PlayerslapZeta(ent,caller,damage)
+        damage = tonumber(damage) or 0 -- Prevent player from slapping a Zeta with another Zeta
         if GetConVar("zetaplayer_adminprintecho"):GetBool() then
-
 
             local name = ent.zetaname
 
@@ -190,15 +193,14 @@ if SERVER then -- Player admin commands will be handled here
             ent.loco:SetVelocity(VectorRand(-1000,1000))
         end
         ent:EmitSound("physics/body/body_medium_impact_hard"..math.random(1,6)..".wav",65)
-        ent:TakeDamage(tonumber(damage),caller,caller)
+        ent:TakeDamage(damage,caller,caller)
     end
 
 
     local function PlayerWhipZeta(ent,caller,damage,times)
-        damage = damage or 0
-        times = times or 10
+        damage = tonumber(damage) or 0
+        times = tonumber(times) or 1
         if GetConVar("zetaplayer_adminprintecho"):GetBool() then
-
             local name = ent.zetaname
 
 
@@ -216,13 +218,13 @@ if SERVER then -- Player admin commands will be handled here
                 ent.loco:SetVelocity(VectorRand(-1000,1000))
             end
             ent:EmitSound("physics/body/body_medium_impact_hard"..math.random(1,6)..".wav",65)
-            ent:TakeDamage(tonumber(damage),caller,caller)
+            ent:TakeDamage(damage,caller,caller)
         end)
 
     end
 
     local function PlayerigniteZeta(ent,caller,length)
-        length = length or 5
+        length = tonumber(length) or 5
         if GetConVar("zetaplayer_adminprintecho"):GetBool() then
             local name = ent.zetaname
             net.Start("zeta_sendcoloredtext",true)
@@ -233,6 +235,7 @@ if SERVER then -- Player admin commands will be handled here
     end
 
     local function PlayersethealthZeta(ent,caller,amount)
+        amount = tonumber(amount)
         if GetConVar("zetaplayer_adminprintecho"):GetBool() then
 
             local name = ent.zetaname
@@ -246,6 +249,7 @@ if SERVER then -- Player admin commands will be handled here
 
     local function PlayersetarmorZeta(ent,caller,amount)
         if !IsValid(ent) or !IsValid(self) then return end
+        amount = tonumber(amount)
         if GetConVar("zetaplayer_adminprintecho"):GetBool() then
             local name = ent.zetaname
 
@@ -332,53 +336,66 @@ if SERVER then -- Player admin commands will be handled here
         local split = string.Explode(" ",text)
 
         if split[1] == ",goto" then
-            local name = string.Replace(text,",goto ","")
+            if split[2]==nil then ply:PrintMessage(HUD_PRINTTALK,split[1].." is missing a target") return "" end
+            local name = split[2]
+
             local zeta = FindZetaByName(name)
-            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." Is not valid") return "" end
+            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." is not valid") return "" end
 
             PlayerGOTOZeta(zeta,ply)
             return ""
         end
 
         if split[1] == ",bring" then
-            local name = string.Replace(text,",bring ","")
+            if split[2]==nil then ply:PrintMessage(HUD_PRINTTALK,split[1].." is missing a target") return "" end
+            local name = split[2]
+
             local zeta = FindZetaByName(name)
-            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." Is not valid") return "" end
+            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." is not valid") return "" end
 
             PlayerBringZeta(zeta,ply)
             return ""
         end
 
         if split[1] == ",return" then
-            local name = string.Replace(text,",return ","")
-            local zeta = FindZetaByName(name)
-            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." Is not valid") return "" end
+            if split[2]==nil then ply:PrintMessage(HUD_PRINTTALK,split[1].." is missing a target") return "" end
+            local name = split[2]
 
+            local zeta = FindZetaByName(name)
+            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." is not valid") return "" end
+            if !zeta.zetaLastPosition then ply:PrintMessage(HUD_PRINTTALK,name.." can't be returned") return "" end
+            
             PlayerReturnZeta(zeta,ply)
             return ""
         end
 
         if split[1] == ",slay" then
-            local name = string.Replace(text,",slay ","")
+            if split[2]==nil then ply:PrintMessage(HUD_PRINTTALK,split[1].." is missing a target") return "" end
+            local name = split[2]
+
             local zeta = FindZetaByName(name)
-            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." Is not valid") return "" end
+            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." is not valid") return "" end
 
             PlayerSlayZeta(zeta,ply)
             return ""
         end
         
         if split[1] == ",kick" then
-            local name = string.Replace(text,",kick ","")
+            if split[2]==nil then ply:PrintMessage(HUD_PRINTTALK,split[1].." is missing a target") return "" end
+            local name = split[2]
+
             local zeta = FindZetaByName(split[2])
+            
             local reason = string.Replace(text,split[2])
             reason = string.Replace(reason,",kick ","")
-            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." Is not valid") return "" end
+            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." is not valid") return "" end
 
             PlayerKickZeta(zeta,ply,reason)
             return ""
         end
 
         if split[1] == ",ban" then
+            if split[2]==nil then ply:PrintMessage(HUD_PRINTTALK,split[1].." is missing a target") return "" end
             local reason = ""
             local time 
             local name 
@@ -394,123 +411,129 @@ if SERVER then -- Player admin commands will be handled here
 
             local zeta = FindZetaByName(name)
 
-            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." Is not valid") return "" end
+            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." is not valid") return "" end
 
             PlayerBanZeta(zeta,ply,reason,tonumber(time))
             return ""
         end
 
         if split[1] == ",slap" then
+            if split[2]==nil then ply:PrintMessage(HUD_PRINTTALK,split[1].." is missing a target") return "" end
             local name = split[2]
             local dmg = split[3] or 0
-
             local zeta = FindZetaByName(name)
 
-            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." Is not valid") return "" end
+            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." is not valid") return "" end
 
             PlayerslapZeta(zeta,ply,dmg)
             return ""
         end
 
         if split[1] == ",whip" then
+            if split[2]==nil then ply:PrintMessage(HUD_PRINTTALK,split[1].." is missing a target") return "" end
             local name = split[2]
             local dmg = split[3] or 0
             local times = split[4] or 10
 
             local zeta = FindZetaByName(name)
 
-            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." Is not valid") return "" end
+            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." is not valid") return "" end
 
             PlayerWhipZeta(zeta,ply,dmg,times)
             return ""
         end
 
         if split[1] == ",ignite" then
+            if split[2]==nil then ply:PrintMessage(HUD_PRINTTALK,split[1].." is missing a target") return "" end
             local name = split[2]
             local length = split[3] or 5
-
             local zeta = FindZetaByName(name)
 
-            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." Is not valid") return "" end
+            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." is not valid") return "" end
 
             PlayerigniteZeta(zeta,ply,length)
             return ""
         end
 
         if split[1] == ",sethealth" then
+            if split[2]==nil then ply:PrintMessage(HUD_PRINTTALK,split[1].." is missing a target") return "" end
             local name = split[2]
             local hp = split[3] or 100
-
             local zeta = FindZetaByName(name)
 
-            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." Is not valid") return "" end
+            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." is not valid") return "" end
 
             PlayersethealthZeta(zeta,ply,hp)
             return ""
         end
 
         if split[1] == ",setarmor" then
+            if split[2]==nil then ply:PrintMessage(HUD_PRINTTALK,split[1].." is missing a target") return "" end
             local name = split[2]
             local armor = split[3] or 0
-
             local zeta = FindZetaByName(name)
 
-            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." Is not valid") return "" end
+            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." is not valid") return "" end
 
             PlayersetarmorZeta(zeta,ply,armor)
             return ""
         end
 
         if split[1] == ",god" then
+            if split[2]==nil then ply:PrintMessage(HUD_PRINTTALK,split[1].." is missing a target") return "" end
             local name = split[2]
-
             local zeta = FindZetaByName(name)
 
-            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." Is not valid") return "" end
+            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." is not valid") return "" end
+            if zeta.zetaIngodmode then ply:PrintMessage(HUD_PRINTTALK,name.." is already in god mode") return "" end
 
             PlayerGodModeZeta(zeta,ply)
             return ""
         end
 
         if split[1] == ",ungod" then
+            if split[2]==nil then ply:PrintMessage(HUD_PRINTTALK,split[1].." is missing a target") return "" end
             local name = split[2]
-
             local zeta = FindZetaByName(name)
 
-            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." Is not valid") return "" end
+            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." is not valid") return "" end
+            if !zeta.zetaIngodmode then ply:PrintMessage(HUD_PRINTTALK,name.." is already a mortal") return "" end
 
             PlayerUnGodZeta(zeta,ply)
             return ""
         end
 
         if split[1] == ",jail" then
+            if split[2]==nil then ply:PrintMessage(HUD_PRINTTALK,split[1].." is missing a target") return "" end
             local name = split[2]
-
             local zeta = FindZetaByName(name)
 
-            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." Is not valid") return "" end
+            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." is not valid") return "" end
+            if zeta.IsJailed then ply:PrintMessage(HUD_PRINTTALK,name.." is already in jail") return "" end
 
             PlayerjailZeta(zeta,ply)
             return ""
         end
 
         if split[1] == ",tpjail" then
+            if split[2]==nil then ply:PrintMessage(HUD_PRINTTALK,split[1].." is missing a target") return "" end
             local name = split[2]
-
             local zeta = FindZetaByName(name)
 
-            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." Is not valid") return "" end
+            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." is not valid") return "" end
+            if zeta.IsJailed then ply:PrintMessage(HUD_PRINTTALK,name.." is already in jail") return "" end
 
             PlayertpjailZeta(zeta,ply)
             return ""
         end
         
         if split[1] == ",unjail" then
+            if split[2]==nil then ply:PrintMessage(HUD_PRINTTALK,split[1].." is missing a target") return "" end
             local name = split[2]
-
             local zeta = FindZetaByName(name)
 
-            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." Is not valid") return "" end
+            if !IsValid(zeta) then ply:PrintMessage(HUD_PRINTTALK,name.." is not valid") return "" end
+            if !zeta.IsJailed then ply:PrintMessage(HUD_PRINTTALK,name.." is not in jail") return "" end
 
             PlayerunjailZeta(zeta,ply)
             return ""
