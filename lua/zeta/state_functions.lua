@@ -1009,6 +1009,7 @@ function ENT:FindVehicle()
     self:MoveDecide()
     
     if foundVehicle then
+        if !IsValid( vehicle ) then return end -- Just in case the vehicle somehow becomes no longer valid
         local closeabort = false
         local speed,anim = self:GetMovementData(vehicle:GetPos())
         self:StartActivity(anim)
