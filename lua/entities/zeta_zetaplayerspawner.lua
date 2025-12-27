@@ -77,73 +77,144 @@ function ENT:Initialize()
     end
 
     self.ShouldSpawnAdmin = self.IsAdmin
-    
+
+    local UseSERVERCACHE = GetConVar("zetaplayer_useservercacheddata"):GetBool()
     local overrideMdl = GetConVar('zetaplayer_overridemodel'):GetString()
     if self.IsAdmin == true then overrideMdl = GetConVar('zetaplayer_adminoverridemodel'):GetString() end
     if overrideMdl != '' then
-      -- Explode the string to table by ',' separator
-      local cvarMdls = string.Explode(',',overrideMdl)
-      for k, v in ipairs(cvarMdls) do
-        -- If model is invalid, then remove it from table
-        if !util.IsValidModel(v) then
-          table.remove(cvarMdls, k)
-        end
+      local cvarMdls = string.Explode(',', overrideMdl)
+      for i=1, #cvarMdls do
+        if util.IsValidModel(cvarMdls[i]) then continue end
+        cvarMdls[i] = nil
       end
-    
-      -- Set model to random model from table if there's any
       if #cvarMdls > 0 then 
         self.mdl = cvarMdls[zetamath.random(#cvarMdls)] 
       end
-    elseif GetConVar('zetaplayer_randomplayermodels'):GetInt() == 1 then
-      if GetConVar('zetaplayer_randomdefaultplayermodels'):GetInt() == 0 then
-        self.mdl = table.Random(player_manager.AllValidModels())
+    elseif GetConVar('zetaplayer_randomplayermodels'):GetBool() then
+      if !GetConVar('zetaplayer_randomdefaultplayermodels'):GetBool() then
+
+
+        if !UseSERVERCACHE then
+          if GetConVar("zetaplayer_enableblockmodels"):GetBool() then
+            local validplayermodels = player_manager.AllValidModels()
+
+
+            local json = file.Read("zetaplayerdata/blockedplayermodels.json","DATA")
+            local blockedmdls = util.JSONToTable(json)
+
+            local copyvalidplayermodels = table.Copy(validplayermodels)
+            copyvalidplayermodels = table.ClearKeys( copyvalidplayermodels )
+            if #blockedmdls > 0 then
+              for i=1, #blockedmdls do
+
+                local key = table.KeyFromValue( copyvalidplayermodels, blockedmdls[i] )
+
+                if key then
+
+                  copyvalidplayermodels[key] = nil
+
+                end
+              end
+            end
+
+            for k,v in RandomPairs(copyvalidplayermodels) do
+              self.mdl = v
+              break
+            end
+          else
+            for k,v in RandomPairs(player_manager.AllValidModels()) do
+              self.mdl = v
+              break
+            end
+          end
+
+        else -- server cache true
+
+          if #_SERVERPLAYERMODELS > 0 then -- Just in case someone decided to block every model possible.        ...Why?
+            self.mdl = _SERVERPLAYERMODELS[zetamath.random(#_SERVERPLAYERMODELS)]
+          else
+            self.mdl = "models/player/kleiner.mdl"
+          end
+
+        end -- SERVER CACHE End
+
       else
-        local mdls = {
-          'models/player/alyx.mdl',
-          'models/player/arctic.mdl',
-          'models/player/barney.mdl',
-          'models/player/breen.mdl',
-          'models/player/charple.mdl',
-          'models/player/combine_soldier.mdl',
-          'models/player/combine_soldier_prisonguard.mdl',
-          'models/player/combine_super_soldier.mdl',
-          'models/player/corpse1.mdl',
-          'models/player/dod_american.mdl',
-          'models/player/dod_german.mdl',
-          'models/player/eli.mdl',
-          'models/player/gasmask.mdl',
-          'models/player/gman_high.mdl',
-          'models/player/guerilla.mdl',
-          'models/player/kleiner.mdl',
-          'models/player/leet.mdl',
-          'models/player/odessa.mdl',
-          'models/player/phoenix.mdl',
-          'models/player/police.mdl',
-          'models/player/riot.mdl',
-          'models/player/skeleton.mdl',
-          'models/player/soldier_stripped.mdl',
-          'models/player/swat.mdl',
-          'models/player/urban.mdl',
-          'models/player/group01/female_0'..zetamath.random(1,6)..'.mdl',
-          'models/player/group01/male_0'..zetamath.random(1,9)..'.mdl',
-          'models/player/group02/male_02.mdl',
-          'models/player/group02/male_04.mdl',
-          'models/player/group02/male_06.mdl',
-          'models/player/group02/male_08.mdl',
-          'models/player/group03/female_0'..zetamath.random(1,6)..'.mdl',
-          'models/player/group03/male_0'..zetamath.random(1,9)..'.mdl',
-          'models/player/group03m/female_0'..zetamath.random(1,6)..'.mdl',
-          'models/player/group03m/male_0'..zetamath.random(1,9)..'.mdl',
-          "models/player/zombie_soldier.mdl",
-          "models/player/p2_chell.mdl",
-          "models/player/mossman.mdl",
-          "models/player/mossman_arctic.mdl",
-          "models/player/magnusson.mdl",
-          "models/player/monk.mdl",
-          "models/player/zombie_fast.mdl"
-        }
-    
-        self.mdl = mdls[zetamath.random(#mdls)]
+        if !UseSERVERCACHE then
+          local mdls = {
+            'models/player/alyx.mdl',
+            'models/player/arctic.mdl',
+            'models/player/barney.mdl',
+            'models/player/breen.mdl',
+            'models/player/charple.mdl',
+            'models/player/combine_soldier.mdl',
+            'models/player/combine_soldier_prisonguard.mdl',
+            'models/player/combine_super_soldier.mdl',
+            'models/player/corpse1.mdl',
+            'models/player/dod_american.mdl',
+            'models/player/dod_german.mdl',
+            'models/player/eli.mdl',
+            'models/player/gasmask.mdl',
+            'models/player/gman_high.mdl',
+            'models/player/guerilla.mdl',
+            'models/player/kleiner.mdl',
+            'models/player/leet.mdl',
+            'models/player/odessa.mdl',
+            'models/player/phoenix.mdl',
+            'models/player/police.mdl',
+            'models/player/riot.mdl',
+            'models/player/skeleton.mdl',
+            'models/player/soldier_stripped.mdl',
+            'models/player/swat.mdl',
+            'models/player/urban.mdl',
+            'models/player/group01/female_0'..zetamath.random(1,6)..'.mdl',
+            'models/player/group01/male_0'..zetamath.random(1,9)..'.mdl',
+            'models/player/group02/male_02.mdl',
+            'models/player/group02/male_04.mdl',
+            'models/player/group02/male_06.mdl',
+            'models/player/group02/male_08.mdl',
+            'models/player/group03/female_0'..zetamath.random(1,6)..'.mdl',
+            'models/player/group03/male_0'..zetamath.random(1,9)..'.mdl',
+            'models/player/group03m/female_0'..zetamath.random(1,6)..'.mdl',
+            'models/player/group03m/male_0'..zetamath.random(1,9)..'.mdl',
+            "models/player/zombie_soldier.mdl",
+            "models/player/p2_chell.mdl",
+            "models/player/mossman.mdl",
+            "models/player/mossman_arctic.mdl",
+            "models/player/magnusson.mdl",
+            "models/player/monk.mdl",
+            "models/player/zombie_fast.mdl"
+          }
+
+          if GetConVar("zetaplayer_enableblockmodels"):GetBool() then
+            local json = file.Read("zetaplayerdata/blockedplayermodels.json","DATA")
+            local blockedmdls = util.JSONToTable(json)
+            if #blockedmdls > 0 then
+              for k, v in ipairs( blockedmdls ) do
+
+                local key = table.KeyFromValue( mdls, v)
+                
+                if key then
+
+                  mdls[key] = nil
+
+                end
+              end
+            end
+          end
+          
+          if #mdls > 0 then
+            self.mdl = mdls[zetamath.random(#mdls)]
+          else
+            self.mdl = "models/player/kleiner.mdl"
+          end
+        else -- Server cache true
+
+          if #_SERVERDEFAULTMDLS > 0 then
+            self.mdl = _SERVERDEFAULTMDLS[zetamath.random(#_SERVERDEFAULTMDLS)]
+          else
+            self.mdl = "models/player/kleiner.mdl"
+          end
+        end -- SERVER CACHE END
       end
     end
     local naturalPrefix = (self.IsNatural and "natural" or "")
@@ -485,7 +556,7 @@ function ENT:Initialize()
                         end
 
                         if teamData.teammodel then
-                            spawnmdl = teamData.teammodel
+                            self.mdl = teamData.teammodel
                         end
 
                         local spawns = self:GetTeamSpawns()
