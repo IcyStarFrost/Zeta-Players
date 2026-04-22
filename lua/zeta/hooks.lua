@@ -136,7 +136,7 @@ function ENT:OnKilled(dmginfo)
         end
 
         if IsValid(dmginfo:GetInflictor()) and dmginfo:GetInflictor():GetClass() == 'prop_combine_ball' then
-            ragdoll:Dissolve()
+            ragdoll:Dissolve( math.random( 0, 2 ) )
         else
         
         if isfunction(_ZetaWeaponDataTable[self.Weapon].dropCallback) then

@@ -88,19 +88,6 @@ function Entmeta:Disintegrate()
   end)
 end
 
-function Entmeta:Dissolve()
-  if !self:IsValid() then return end
-  local disintegrator  = ents.Create('env_entity_dissolver')
-  if not IsValid(disintegrator) then return end
-  self:SetName("disintegratortarget "..self:GetClass()..self:EntIndex())
-  
-  disintegrator:SetKeyValue("target", self:GetName())
-  disintegrator:SetKeyValue("dissolvetype", tostring(zetamath.random(0,2)))
-  disintegrator:Fire("dissolve")
-  disintegrator:Remove()
-end
-
-
 function Entmeta:MoveMouth(weight)
 	if !self:IsValid() then return end
 
